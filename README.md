@@ -5,7 +5,7 @@ This extension links MediaWiki to phpBB's user table for authentication, and dis
 
 REQUIREMENTS
 =================
-phpBB2
+This version is for phpBB2.
 
 INSTALL:
 =================
