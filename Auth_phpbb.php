@@ -5,8 +5,11 @@
     /**
      * This file makes MediaWiki use a phpbb user database to
      * authenticate with. This forces users to have a PHPBB account
-     * in order to log into the wiki. This should also force the user to
-     * be in a group called wiki.
+     * in order to log into the wiki. This can also force the user to
+     * be in a group called Wiki.
+     *
+     * With 3.0.x release this code was rewritten to make better use of
+     * objects and php5. Requires MediaWiki 1.11.x, PHPBB3 and PHP5.
      *
      * This program is free software; you can redistribute it and/or modify
      * it under the terms of the GNU General Public License as published by
@@ -24,35 +27,251 @@
      * http://www.gnu.org/copyleft/gpl.html
      *
      * @package MediaWiki
-     * @subpackage Auth_PHPBB
+     * @subpackage Auth_phpBB
      * @author Nicholas Dunnaway
      * @copyright 2004-2008 php|uber.leet
      * @license http://www.gnu.org/copyleft/gpl.html
-     * @CVS: $Id: Auth_phpbb.php,v 2.7.0 2008/03/03 12:29:31 nkd Exp $
+     * @CVS: $Id: Auth_phpBB.php,v 3.0.3 2008/03/03 13:02:05 nkd Exp $
      * @link http://uber.leetphp.com
-     * @version $Revision: 2.7.0 $
+     * @version $Revision: 3.0.3 $
      *
      */
 
     error_reporting(E_ALL); // Debug
 
-    // First check if class has already been defined.
-    if (!class_exists('AuthPlugin'))
+    // First check if class and interface has already been defined.
+    if (!class_exists('AuthPlugin') || !interface_exists('iAuthPlugin'))
     {
         /**
-         * Auth Plugin
+         * Auth Plug-in
          *
          */
         require_once './includes/AuthPlugin.php';
 
+        /**
+         * Auth Plug-in Interface
+         *
+         */
+        require_once './extensions/iAuthPlugin.php';
+
+    }
+
+    // First check if the PasswordHash class has already been defined.
+    if (!class_exists('PasswordHash'))
+    {
+        /**
+         * PasswordHash Class
+         *
+         * Portable PHP password hashing framework.
+         *
+         * Written by Solar Designer <solar at openwall.com> in 2004-2006
+         * and placed in the public domain.
+         *
+         * The homepage URL for this framework is:
+         *      http://www.openwall.com/phpass/
+         *
+         */
+        require_once './extensions/PasswordHash.php';
     }
 
     /**
      * Handles the Authentication with the PHPBB database.
      *
      */
-    class Auth_PHPBB extends AuthPlugin
+    class Auth_phpBB extends AuthPlugin implements iAuthPlugin
     {
+
+        /**
+         * Database Collation (Only change this if your know what to change it to)
+         *
+         * @var string
+         */
+        private $_DB_Collation;
+
+        /**
+         * This turns on and off printing of debug information to the screen.
+         *
+         * @var bool
+         */
+        private $_debug = false;
+
+        /**
+         * Name of your PHPBB groups table. (i.e. phpbb_groups)
+         *
+         * @var string
+         */
+        private $_GroupsTB;
+
+        /**
+         * Message user sees when logging in.
+         *
+         * @var string
+         */
+        private $_LoginMessage;
+
+        /**
+         * phpBB MySQL Database Name.
+         *
+         * @var string
+         */
+        private $_MySQL_Database;
+
+        /**
+         * phpBB MySQL Host Name.
+         *
+         * @var string
+         */
+        private $_MySQL_Host;
+
+        /**
+         * phpBB MySQL Password.
+         *
+         * @var string
+         */
+        private $_MySQL_Password;
+
+        /**
+         * phpBB MySQL Username.
+         *
+         * @var string
+         */
+        private $_MySQL_Username;
+
+        /**
+         * Version of MySQL Database.
+         *
+         * @var string
+         */
+        private $_MySQL_Version;
+
+        /**
+         * Text user sees when they login and are not a member of the wiki group.
+         *
+         * @var string
+         */
+        private $_NoWikiError;
+
+        /**
+         * Path to the phpBB install.
+         *
+         * @var string
+         */
+        private $_PathToPHPBB;
+
+        /**
+         * Name of the phpBB session table for single session sign-on.
+         *
+         * @var string
+         */
+        private $_SessionTB;
+
+        /**
+         * This tells the plugin that the phpBB tables
+         * are in a different database then the wiki.
+         * The default settings is false.
+         *
+         * @var bool
+         */
+        private $_UseExtDatabase;
+
+        /**
+         * Name of your PHPBB groups table. (i.e. phpbb_groups)
+         *
+         * @var string
+         */
+        private $_User_GroupTB;
+
+        /**
+         * UserID of our current user.
+         *
+         * @var int
+         */
+        private $_UserID;
+
+        /**
+         * Name of your PHPBB user table. (i.e. phpbb_users)
+         *
+         * @var string
+         */
+        private $_UserTB;
+
+        /**
+         * This tells the Plugin to require
+         * a user to be a member of the above
+         * phpBB group. (ie. wiki) Setting
+         * this to false will let any phpBB
+         * user edit the wiki.
+         *
+         * @var bool
+         */
+        private $_UseWikiGroup;
+
+        /**
+         * Name of your PHPBB group
+         * users need to be a member
+         * of to use the wiki. (i.e. wiki)
+         *
+         * @var mixed
+         */
+        private $_WikiGroupName;
+
+        /**
+         * Constructor
+         *
+         * @param array $aConfig
+         */
+        function __construct($aConfig)
+        {
+            // Set some values phpBB needs.
+            define('IN_PHPBB', true); // We are secure.
+
+            // Read config
+            $this->_GroupsTB        = $aConfig['GroupsTB'];
+            $this->_NoWikiError     = $aConfig['NoWikiError'];
+            $this->_PathToPHPBB     = $aConfig['PathToPHPBB'];
+            $this->_SessionTB       = @$aConfig['SessionTB'];
+            $this->_UseExtDatabase  = $aConfig['UseExtDatabase'];
+            $this->_User_GroupTB    = $aConfig['User_GroupTB'];
+            $this->_UserTB          = $aConfig['UserTB'];
+            $this->_UseWikiGroup    = $aConfig['UseWikiGroup'];
+            $this->_WikiGroupName   = $aConfig['WikiGroupName'];
+            $this->_LoginMessage    = $aConfig['LoginMessage'];
+
+            // Only assign the database values if a external database is used.
+            if ($this->_UseExtDatabase == true)
+            {
+                $this->_MySQL_Database  = $aConfig['MySQL_Database'];
+                $this->_MySQL_Host      = $aConfig['MySQL_Host'];
+                $this->_MySQL_Password  = $aConfig['MySQL_Password'];
+                $this->_MySQL_Username  = $aConfig['MySQL_Username'];
+            }
+
+            // Set some MediaWiki Values
+            // This requires a user be logged into the wiki to make changes.
+            $GLOBALS['wgGroupPermissions']['*']['edit'] = false;
+
+            // Specify who may create new accounts:
+            $GLOBALS['wgGroupPermissions']['*']['createaccount'] = false;
+
+            // Load Hooks
+            $GLOBALS['wgHooks']['UserLoginForm'][]      = array($this, 'onUserLoginForm', false);
+            $GLOBALS['wgHooks']['UserLoginComplete'][]  = $this;
+            $GLOBALS['wgHooks']['UserLogout'][]         = $this;
+        }
+
+
+        /**
+         * Allows the printing of the object.
+         *
+         */
+        public function __toString()
+        {
+            echo '<pre>';
+            print_r($this);
+            echo '</pre>';
+        }
+
+
     	/**
     	 * Add a user to the external authentication database.
     	 * Return true if successful.
@@ -60,12 +279,14 @@
     	 * NOTE: We are not allowed to add users to phpBB from the
     	 * wiki so this always returns false.
     	 *
-    	 * @param User $user
+    	 * @param User $user - only the name should be assumed valid at this point
     	 * @param string $password
+    	 * @param string $email
+    	 * @param string $realname
     	 * @return bool
     	 * @access public
     	 */
-    	function addUser( $user, $password )
+    	public function addUser( $user, $password, $email='', $realname='' )
     	{
     		return false;
     	}
@@ -76,7 +297,7 @@
 		 *
 		 * @return bool
 		 */
-		function allowPasswordChange()
+		public function allowPasswordChange()
 		{
 			return true;
 		}
@@ -94,49 +315,46 @@
     	 * @access public
     	 * @todo Check if the password is being changed when it contains a slash or an escape char.
     	 */
-    	function authenticate($username, $password)
+    	public function authenticate($username, $password)
     	{
             // Connect to the database.
     		$fresMySQLConnection = $this->connect();
 
-    		// Clean $username and force lowercase username.
-    		$username = htmlentities(strtolower($username), ENT_QUOTES, 'UTF-8');
-    		$username = str_replace('&#039;', '\\\'', $username); // Allow apostrophes (Escape them though)
+            $username = $this->utf8($username); // Convert to UTF8
 
-    		// Check MySQLVersion
-            if ($GLOBALS['gstrMySQLVersion'] >= 4.1)
-            {
-        		// Check Database for username and password.
-        		$fstrMySQLQuery = sprintf("SELECT `username`, `user_password`
-                		                   FROM `%s`
-                		                   WHERE `username` = CONVERT( _utf8 '%s' USING latin1 )
-                                           COLLATE latin1_swedish_ci
-                                           LIMIT 1",
-                		                   $GLOBALS['wgPHPBB_UserTB'],
-                		                   mysql_real_escape_string($username, $fresMySQLConnection));
-            }
-            else
-            {
-        		// Check Database for username and password.
-        		$fstrMySQLQuery = sprintf("SELECT `username`, `user_password`
-                		                   FROM `%s`
-                		                   WHERE `username` = '%s'
-                                           LIMIT 1",
-                		                   $GLOBALS['wgPHPBB_UserTB'],
-                		                   mysql_real_escape_string($username, $fresMySQLConnection));
-            }
+    		// Check Database for username and password.
+    		$fstrMySQLQuery = sprintf("SELECT `user_id`, `username_clean`, `user_password`
+    		                   FROM `%s`
+    		                   WHERE `username_clean` = '%s'
+                               LIMIT 1",
+                               $this->_UserTB,
+                               mysql_real_escape_string($username, $fresMySQLConnection));
 
     		// Query Database.
             $fresMySQLResult = mysql_query($fstrMySQLQuery, $fresMySQLConnection)
                 or die($this->mySQLError('Unable to view external table'));
 
-            while($faryMySQLResult = mysql_fetch_array($fresMySQLResult))
+            while($faryMySQLResult = mysql_fetch_assoc($fresMySQLResult))
             {
-                // Check if password submited matches the PHPBB password.
-                // Also check if user is a member of the phpbb group 'wiki'.
-                // print md5($password) . ':' . $faryMySQLResult['user_password'] . '<br />'; // Debug
-                if (md5($password) == $faryMySQLResult['user_password'] && $this->isMemberOfWikiGroup($username))
+                // Use new phpass class
+                $PasswordHasher = new PasswordHash(8, TRUE);
+
+                // Print the hash of the password entered by the user and the
+                // password hash from the database to the screen.
+                // While this will display its not effective anymore.
+                if ($this->_debug)
                 {
+                    //print md5($password) . ':' . $faryMySQLResult['user_password'] . '<br />'; // Debug
+                    print $PasswordHasher->HashPassword($password) . ':' . $faryMySQLResult['user_password'] . '<br />'; // Debug
+                }
+
+                /**
+                 * Check if password submited matches the PHPBB password.
+                 * Also check if user is a member of the phpbb group 'wiki'.
+                 */
+                if ($PasswordHasher->CheckPassword($password, $faryMySQLResult['user_password']) && $this->isMemberOfWikiGroup($username))
+                {
+                    $this->_UserID = $faryMySQLResult['user_id'];
                     return true;
                 }
             }
@@ -163,7 +381,7 @@
     	 * @return bool
     	 * @access public
     	 */
-    	function autoCreate()
+    	public function autoCreate()
     	{
     		return true;
     	}
@@ -179,7 +397,7 @@
     	 * @return bool
     	 * @access public
     	 */
-    	function canCreateAccounts()
+    	public function canCreateAccounts()
     	{
     		return false;
     	}
@@ -193,15 +411,15 @@
          * {@source }
          * @return resource
          */
-        function connect()
+        private function connect()
         {
             // Check if the phpBB tables are in a different database then the Wiki.
-            if ($GLOBALS['wgPHPBB_UseExtDatabase'] == true)
+            if ($this->_UseExtDatabase == true)
             {
                 // Connect to database. I supress the error here.
-                $fresMySQLConnection = @mysql_connect($GLOBALS['wgPHPBB_MySQL_Host'],
-                                                      $GLOBALS['wgPHPBB_MySQL_Username'],
-                                                      $GLOBALS['wgPHPBB_MySQL_Password'], true);
+                $fresMySQLConnection = @mysql_connect($this->_MySQL_Host,
+                                                      $this->_MySQL_Username,
+                                                      $this->_MySQL_Password, true);
 
                 // Check if we are connected to the database.
                 if (!$fresMySQLConnection)
@@ -211,15 +429,14 @@
                 }
 
                 // Select Database
-                $db_selected = mysql_select_db($GLOBALS['wgPHPBB_MySQL_Database'], $fresMySQLConnection);
+                $db_selected = mysql_select_db($this->_MySQL_Database, $fresMySQLConnection);
 
                 // Check if we were able to select the database.
                 if (!$db_selected)
                 {
                     $this->mySQLError('There was a problem when connecting to the phpBB database.<br />' .
-                                      'The database ' . $GLOBALS['wgPHPBB_MySQL_Database'] . ' was not found.<br />');
+                                      'The database ' . $this->_MySQL_Database . ' was not found.<br />');
                 }
-
             }
             else
             {
@@ -242,50 +459,46 @@
                     $this->mySQLError('There was a problem when connecting to the phpBB database.<br />' .
                                       'The database ' . $GLOBALS['wgDBname'] . ' was not found.<br />');
                 }
-
             }
 
-            $GLOBALS['gstrMySQLVersion'] = substr(mysql_get_server_info(), 0, 3); // Get the mysql version.
+            $this->_MySQL_Version = substr(mysql_get_server_info(), 0, 3); // Get the mysql version.
+            mysql_query("SET NAMES 'utf8'", $fresMySQLConnection); // This is so utf8 usernames work. Needed for MySQL 4.1
 
             return $fresMySQLConnection;
+        }
+
+
+        /**
+         * This turns on debugging
+         *
+         */
+        public function EnableDebug()
+        {
+            $this->_debug = true;
+            return;
         }
 
 
     	/**
     	 * If you want to munge the case of an account name before the final
     	 * check, now is your chance.
+    	 *
+    	 * @return string
     	 */
-    	function getCanonicalName( $username )
+    	public function getCanonicalName( $username )
     	{
             // Connect to the database.
     		$fresMySQLConnection = $this->connect();
 
-    		// Clean $username and force lowercase username.
-    		$username = htmlentities(strtolower($username), ENT_QUOTES, 'UTF-8');
-    		$username = str_replace('&#039;', '\\\'', $username); // Allow apostrophes (Escape them though)
+            $username = $this->utf8($username); // Convert to UTF8
 
-    		// Check MySQLVersion
-            if ($GLOBALS['gstrMySQLVersion'] >= 4.1)
-            {
-        		// Check Database for username. We will return the correct casing of the name.
-        		$fstrMySQLQuery = sprintf("SELECT `username`
-                		                   FROM `%s`
-                		                   WHERE `username` = CONVERT( _utf8 '%s' USING latin1 )
-                                           COLLATE latin1_swedish_ci
-                                           LIMIT 1",
-        	                               $GLOBALS['wgPHPBB_UserTB'],
-                		                   mysql_real_escape_string($username, $fresMySQLConnection));
-            }
-            else
-            {
-        		// Check Database for username. We will return the correct casing of the name.
-        		$fstrMySQLQuery = sprintf("SELECT `username`
-                		                   FROM `%s`
-                		                   WHERE `username` = '%s'
-                                           LIMIT 1",
-        	                               $GLOBALS['wgPHPBB_UserTB'],
-                		                   mysql_real_escape_string($username, $fresMySQLConnection));
-            }
+    		// Check Database for username. We will return the correct casing of the name.
+    		$fstrMySQLQuery = sprintf("SELECT `username_clean`
+    		                   FROM `%s`
+    		                   WHERE `username_clean` = '%s'
+                               LIMIT 1",
+                               $this->_UserTB,
+                               mysql_real_escape_string($username, $fresMySQLConnection));
 
     		// Query Database.
             $fresMySQLResult = mysql_query($fstrMySQLQuery, $fresMySQLConnection)
@@ -293,7 +506,7 @@
 
             while($faryMySQLResult = mysql_fetch_assoc($fresMySQLResult))
             {
-                return ucfirst($faryMySQLResult['username']);
+                return ucfirst($faryMySQLResult['username_clean']);
             }
 
             // At this point the username is invalid and should return just as it was passed.
@@ -312,39 +525,24 @@
     	 * NOTE: This gets the email address from PHPBB for the wiki account.
     	 *
     	 * @param User $user
+    	 * @param $autocreate bool True if user is being autocreated on login
     	 * @access public
     	 */
-    	function initUser(&$user)
+        public function initUser( &$user, $autocreate=false )
     	{
             // Connect to the database.
     		$fresMySQLConnection = $this->connect();
 
-    		// Clean $username and force lowercase username.
-    		$username = htmlentities(strtolower($user->mName), ENT_QUOTES, 'UTF-8');
-    		$username = str_replace('&#039;', '\\\'', $username); // Allow apostrophes (Escape them though)
+            $username = $this->utf8($user->mName); // Convert to UTF8
 
-    		// Check MySQLVersion
-            if ($GLOBALS['gstrMySQLVersion'] >= 4.1)
-            {
-        		// Check Database for username and email address.
-        		$fstrMySQLQuery = sprintf("SELECT `username`, `user_email`
-                		                   FROM `%s`
-                		                   WHERE `username` = CONVERT( _utf8 '%s' USING latin1 )
-                                           COLLATE latin1_swedish_ci
-                                           LIMIT 1",
-        	                               $GLOBALS['wgPHPBB_UserTB'],
-                		                   mysql_real_escape_string($username, $fresMySQLConnection));
-            }
-            else
-            {
-        		// Check Database for username and email address.
-        		$fstrMySQLQuery = sprintf("SELECT `username`, `user_email`
-                		                   FROM `%s`
-                		                   WHERE `username` = '%s'
-                                           LIMIT 1",
-        	                               $GLOBALS['wgPHPBB_UserTB'],
-                		                   mysql_real_escape_string($username, $fresMySQLConnection));
-            }
+    		// Check Database for username and email address.
+    		$fstrMySQLQuery = sprintf("SELECT `username_clean`, `user_email`
+    		                   FROM `%s`
+    		                   WHERE `username_clean` = '%s'
+                               LIMIT 1",
+                               $this->_UserTB,
+                               mysql_real_escape_string($username, $fresMySQLConnection));
+
 
     		// Query Database.
             $fresMySQLResult = mysql_query($fstrMySQLQuery, $fresMySQLConnection)
@@ -355,7 +553,6 @@
                 $user->mEmail       = $faryMySQLResult['user_email']; // Set Email Address.
                 $user->mRealName    = 'I need to Update My Profile';  // Set Real Name.
             }
-
     	}
 
 
@@ -368,61 +565,108 @@
     	 * @todo Remove 2nd connection to database. For function isMemberOfWikiGroup()
     	 *
     	 */
-    	function isMemberOfWikiGroup($username)
+    	private function isMemberOfWikiGroup($username)
     	{
             // In LocalSettings.php you can control if being a member of a wiki
             // is required or not.
-    	    if (isset($GLOBALS['wgPHPBB_UseWikiGroup']) && $GLOBALS['wgPHPBB_UseWikiGroup'] === false)
+    	    if (isset($this->_UseWikiGroup) && $this->_UseWikiGroup === false)
     	    {
     	        return true;
     	    }
 
             // Connect to the database.
     		$fresMySQLConnection = $this->connect();
+    	    $username = $this->utf8($username); // Convert to UTF8
+    	    $username = mysql_real_escape_string($username, $fresMySQLConnection); // Clean username.
 
-    	    /**
-             *  This is a great query. It takes the username and gets the userid. Then
-             *  it gets the group_id number of the the Wiki group. Last it checks if the
-             *  userid and groupid are matched up. (The user is in the wiki group.)
-             *
-             *  Last it returns TRUE or FALSE on if the user is in the wiki group.
-             */
+    	    // If not an array make this an array.
+    	    if (!is_array($this->_WikiGroupName))
+    	    {
+    	        $this->_WikiGroupName = array($this->_WikiGroupName);
+    	    }
 
-            // Get UserId
-            mysql_query('SELECT @userId := `user_id` FROM `' . $GLOBALS['wgPHPBB_UserTB'] .
-                        '` WHERE `username` = \'' . $username . '\';', $fresMySQLConnection)
-                        or die($this->mySQLError('Unable to get userID.'));
+    	    foreach ($this->_WikiGroupName as $WikiGrpName)
+    	    {
+        	    /**
+                 *  This is a great query. It takes the username and gets the userid. Then
+                 *  it gets the group_id number of the the Wiki group. Last it checks if the
+                 *  userid and groupid are matched up. (The user is in the wiki group.)
+                 *
+                 *  Last it returns TRUE or FALSE on if the user is in the wiki group.
+                 */
 
-            // Get WikiId
-            mysql_query('SELECT @wikiId := `group_id` FROM `' . $GLOBALS['wgPHPBB_GroupsTB'] .
-                        '` WHERE `group_name` = \'' . $GLOBALS['wgPHPBB_WikiGroupName'] . '\';', $fresMySQLConnection)
-                        or die($this->mySQLError('Unable to get wikiID.'));
+                // Get UserId
+                mysql_query('SELECT @userId := `user_id` FROM `' . $this->_UserTB .
+                            '` WHERE `username_clean` = \'' . $username . '\';', $fresMySQLConnection)
+                            or die($this->mySQLError('Unable to get userID.'));
 
-            // Check UserId and WikiId
-            mysql_query('SELECT @isThere := COUNT( * ) FROM `' . $GLOBALS['wgPHPBB_User_GroupTB'] .
-                        '` WHERE `user_id` = @userId AND `group_id` = @wikiId;', $fresMySQLConnection)
-                        or die($this->mySQLError('Unable to get validate user group.'));
+                // Get WikiId
+                mysql_query('SELECT @wikiId := `group_id` FROM `' . $this->_GroupsTB .
+                            '` WHERE `group_name` = \'' . $WikiGrpName . '\';', $fresMySQLConnection)
+                            or die($this->mySQLError('Unable to get wikiID.'));
 
-            // Return Result.
-            $fstrMySQLQuery = 'SELECT IF(@isThere > 0, \'true\', \'false\') AS `result`;';
+                // Check UserId and WikiId
+                mysql_query('SELECT @isThere := COUNT( * ) FROM `' . $this->_User_GroupTB .
+                            '` WHERE `user_id` = @userId AND `group_id` = @wikiId and `user_pending` = 0;', $fresMySQLConnection)
+                            or die($this->mySQLError('Unable to get validate user group.'));
 
-            // Query Database.
-            $fresMySQLResult = mysql_query($fstrMySQLQuery, $fresMySQLConnection)
-                or die($this->mySQLError('Unable to view external table'));
+                // Return Result.
+                $fstrMySQLQuery = 'SELECT IF(@isThere > 0, \'true\', \'false\') AS `result`;';
 
-            // Check for a true or false response.
-            while($faryMySQLResult = mysql_fetch_array($fresMySQLResult))
-            {
-                if ($faryMySQLResult['result'] == 'true')
+                // Query Database.
+                $fresMySQLResult = mysql_query($fstrMySQLQuery, $fresMySQLConnection)
+                    or die($this->mySQLError('Unable to view external table'));
+
+                // Check for a true or false response.
+                while($faryMySQLResult = mysql_fetch_array($fresMySQLResult))
                 {
-                    return true; // User is in Wiki group.
+                    if ($faryMySQLResult['result'] == 'true')
+                    {
+                        return true; // User is in Wiki group.
+                    }
                 }
-                else
-                {
-                    return false; // User is not in Wiki group.
-                }
-            }
+    	    }
+            // Hook error message.
+            $GLOBALS['wgHooks']['UserLoginForm'][] = array($this, 'onUserLoginForm', $this->_NoWikiError);
+            return false; // User is not in Wiki group.
+    	}
 
+
+    	/**
+    	 * This loads the phpBB files that are needed.
+    	 *
+    	 */
+    	private function loadPHPFiles($FileSet)
+    	{
+            $GLOBALS['phpbb_root_path'] = $this->_PathToPHPBB; // Path to phpBB
+            $GLOBALS['phpEx']           = substr(strrchr(__FILE__, '.'), 1); // File Ext.
+
+            //$phpbb_root_path = $this->_PathToPHPBB; // Path to phpBB
+            //$phpEx = substr(strrchr(__FILE__, '.'), 1); // File Ext.
+
+    	    // Check that path is valid.
+    	    if (!is_dir($this->_PathToPHPBB))
+    	    {
+    	        throw new Exception('Unable to find phpBB installed at (' . $this->_PathToPHPBB . ').');
+    	    }
+
+    	    switch ($FileSet)
+    	    {
+    	    	case 'UTF8':
+            	    // Check for UTF file.
+            	    if (!is_file($this->_PathToPHPBB . 'includes/utf/utf_tools.php'))
+            	    {
+                        throw new Exception('Unable to find phpbb\'s utf_tools.php file at (' . $this->_PathToPHPBB . '/includes/utf/utf_tools.php). Please check that phpBB is installed.');
+            	    }
+                    // Load the phpBB file.
+            	    require_once $this->_PathToPHPBB . 'includes/utf/utf_tools.php';
+    	    		break;
+
+	    		case 'phpBBLogin':
+	    		    break;
+    		    case 'phpBBLogout':
+    		        break;
+    	    }
     	}
 
 
@@ -436,7 +680,7 @@
     	 * @param UserLoginTemplate $template
     	 * @access public
     	 */
-    	function modifyUITemplate( &$template )
+    	public function modifyUITemplate( &$template )
     	{
     		$template->set('usedomain',   false); // We do not want a domain name.
     		$template->set('create',      false); // Remove option to create new accounts from the wiki.
@@ -450,12 +694,66 @@
     	 * @param string $message
     	 * @access public
     	 */
-    	function mySQLError( $message )
+    	private function mySQLError( $message )
     	{
-    	    echo $message . '<br />';
-            echo 'MySQL Error Number: ' . mysql_errno() . '<br />';
-            echo 'MySQL Error Message: ' . mysql_error() . '<br /><br />';
-            exit;
+    	    throw new Exception($message . '<br />' . 'MySQL Error Number: ' . mysql_errno() . '<br />' . 'MySQL Error Message: ' . mysql_error() . '<br /><br />');
+    	}
+
+
+    	/**
+    	 * This is the hook that runs when a user logs in. This is where the
+    	 * code to auto log-in a user to phpBB should go.
+    	 *
+    	 * Note: Right now it does nothing,
+    	 *
+    	 * @param object $user
+    	 * @return bool
+    	 */
+    	public function onUserLoginComplete(&$user)
+    	{
+            // @ToDo: Add code here to auto log into the forum.
+            return true;
+    	}
+
+
+    	/**
+    	 * Here we add some text to the login screen telling the user
+    	 * they need a phpBB account to login to the wiki.
+    	 *
+    	 * Note: This is a hook.
+    	 *
+    	 * @param string $errorMessage
+    	 * @param object $template
+    	 * @return bool
+    	 */
+    	public function onUserLoginForm($errorMessage = false, $template)
+    	{
+    	    $template->data['link'] = $this->_LoginMessage;
+
+    	    // If there is an error message display it.
+    	    if ($errorMessage)
+    	    {
+                $template->data['message'] = $errorMessage;
+                $template->data['messagetype'] = 'error';
+    	    }
+    	    return true;
+    	}
+
+
+    	/**
+    	 * This is the Hook that gets called when a user logs out.
+    	 *
+    	 * @param object $user
+    	 */
+    	public function onUserLogout(&$user)
+    	{
+    	    // User logs out of the wiki we want to log them out of the form too.
+    	    if (!isset($this->_SessionTB))
+    	    {
+    	        return true; // If the value is not set just return true and move on.
+    	    }
+    	    return true;
+    	    // @todo: Add code here to delete the session.
     	}
 
 
@@ -467,7 +765,7 @@
     	 * @param string $domain
     	 * @access public
     	 */
-    	function setDomain( $domain )
+    	public function setDomain( $domain )
     	{
     		$this->domain = $domain;
     	}
@@ -475,15 +773,20 @@
 
     	/**
     	 * Set the given password in the authentication database.
+    	 * As a special case, the password may be set to null to request
+    	 * locking the password to an unusable value, with the expectation
+    	 * that it will be set later through a mail reset or other method.
+    	 *
     	 * Return true if successful.
     	 *
     	 * NOTE: We only allow the user to change their password via phpBB.
     	 *
-    	 * @param string $password
+    	 * @param $user User object.
+    	 * @param $password String: password.
     	 * @return bool
     	 * @access public
     	 */
-    	function setPassword( $password )
+    	public function setPassword( $user, $password )
     	{
     		return true;
     	}
@@ -504,7 +807,7 @@
     	 * @return bool
     	 * @access public
     	 */
-    	function strict()
+    	public function strict()
     	{
     		return true;
     	}
@@ -516,9 +819,9 @@
 		 *
 		 * @param $user User object.
 		 * @return bool
-		 * @public
+		 * @access public
 		 */
-		function updateExternalDB( $user )
+		public function updateExternalDB( $user )
 		{
 			return true;
 		}
@@ -536,8 +839,9 @@
     	 *
     	 * @param User $user
     	 * @access public
+    	 * @return bool
     	 */
-    	function updateUser( &$user )
+    	public function updateUser( &$user )
     	{
     		return true;
     	}
@@ -556,40 +860,28 @@
     	 * @param string $username
     	 * @return bool
     	 * @access public
-    	 * @todo write this function.
     	 */
-    	function userExists($username)
+    	public function userExists($username)
     	{
+
     	    // Connect to the database.
     		$fresMySQLConnection = $this->connect();
 
-    		// Clean $username and force lowercase username.
-    		$username = htmlentities(strtolower($username), ENT_QUOTES, 'UTF-8');
-    		$username = str_replace('&#039;', '\\\'', $username); // Allow apostrophes (Escape them though)
-
-    		// Check MySQLVersion
-            if ($GLOBALS['gstrMySQLVersion'] >= 4.1)
+            // If debug is on print the username entered by the user and the one from the datebase to the screen.
+            if ($this->_debug)
             {
-        		// Check Database for username.
-        		$fstrMySQLQuery = sprintf("SELECT `username`
-                		                   FROM `%s`
-                		                   WHERE `username` = CONVERT( _utf8 '%s' USING latin1 )
-                                           COLLATE latin1_swedish_ci
-                                           LIMIT 1",
-                                           $GLOBALS['wgPHPBB_UserTB'],
-                		                   mysql_real_escape_string($username, $fresMySQLConnection));
+                print $username . ' : ' . $this->utf8($username); // Debug
             }
-            else
-            {
-        		// Check Database for username.
-        		$fstrMySQLQuery = sprintf("SELECT `username`
-        		                   FROM `%s`
-        		                   WHERE `username` = '%s'
-                                   LIMIT 1",
-                            	   $GLOBALS['wgPHPBB_UserTB'],
-                            	   mysql_real_escape_string($username, $fresMySQLConnection));
 
-            }
+            $username = $this->utf8($username); // Convert to UTF8
+
+    		// Check Database for username.
+    		$fstrMySQLQuery = sprintf("SELECT `username_clean`
+    		                   FROM `%s`
+    		                   WHERE `username_clean` = '%s'
+                               LIMIT 1",
+                               $this->_UserTB,
+                               mysql_real_escape_string($username, $fresMySQLConnection));
 
     		// Query Database.
             $fresMySQLResult = mysql_query($fstrMySQLQuery, $fresMySQLConnection)
@@ -597,14 +889,36 @@
 
             while($faryMySQLResult = mysql_fetch_array($fresMySQLResult))
             {
-                // print htmlentities(strtolower($username), ENT_QUOTES, 'UTF-8') . ' : ' . htmlentities(strtolower($faryMySQLResult['username']), ENT_QUOTES, 'UTF-8'); // Debug
+
+                // If debug is on print the username entered by the user and the one from the datebase to the screen.
+                if ($this->_debug)
+                {
+                    print $username . ' : ' . $faryMySQLResult['username_clean']; // Debug
+                }
+
                 // Double check match.
-                if (htmlentities(strtolower($username), ENT_QUOTES, 'UTF-8') == htmlentities(strtolower($faryMySQLResult['username']), ENT_QUOTES, 'UTF-8'))
+                if ($username == $faryMySQLResult['username_clean'])
                 {
                     return true; // Pass
                 }
             }
             return false; // Fail
+    	}
+
+
+    	/**
+    	 * Cleans a username using PHPBB functions
+    	 *
+    	 * @param string $username
+    	 * @return string
+    	 */
+    	private function utf8($username)
+    	{
+            $this->loadPHPFiles('UTF8'); // Load files needed to clean username.
+            error_reporting(E_ALL ^ E_NOTICE); // remove notices because phpBB does not use include once.
+    		$username = utf8_clean_string($username);
+            error_reporting(E_ALL);
+            return $username;
     	}
 
 
@@ -615,7 +929,7 @@
     	 * @return bool
     	 * @access public
     	 */
-    	function validDomain( $domain )
+    	public function validDomain( $domain )
     	{
     		return true;
     	}
