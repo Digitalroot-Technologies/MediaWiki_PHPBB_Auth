@@ -25,7 +25,7 @@ Open LocalSettings.php. Put this at the bottom of the file. Edit as needed.
         /*-----------------[ Everything below this line. ]-----------------*/
         
         // PHPBB User Database Plugin. (Requires MySQL Database)
-        require_once './extensions/Auth_phpBB.php';
+        require_once './extensions/Auth_phpbb.php';
         
         $wgAuth_Config = array(); // Clean.
         
