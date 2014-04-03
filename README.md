@@ -3,9 +3,13 @@ MediaWiki_PHPBB_Auth
 
 This extension links MediaWiki to phpBB's user table for authentication, and disallows the creation of new accounts in MediaWiki. Users must then log in to the wiki with their phpBB account.
 
+MediaWiki Page: http://www.mediawiki.org/wiki/Extension:PHPBB/Users_Integration
+
 REQUIREMENTS
 =================
 This version is for phpBB3.
+
+The extension requires PHP5, MySQL 5, MediaWiki 1.11+ and phpBB3.
 
 INSTALL:
 =================
