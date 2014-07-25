@@ -20,9 +20,10 @@ You will need to put the name you choose in the code below.
 NOTE: In order for a user to be able to use the wiki they will need to 
 be a member of the group you made in the step above.
 
-Put Auth_phpbb.php in /extensions/
-Put iAuthPlugin.php in /extensions/
+Put Auth_phpbb.php in /extensions/  
+Put iAuthPlugin.php in /extensions/  
 Put PasswordHash.php in /extensions/
+
 
 Open LocalSettings.php. Put this at the bottom of the file. Edit as needed.
 
