@@ -100,7 +100,7 @@ interface iAuthPlugin {
 	 * @param $template UserLoginTemplate object.
 	 * @public
 	 */
-	public function modifyUITemplate( &$template );
+	public function modifyUITemplate( &$template, &$type );
 
 	/**
 	 * Set the domain this plugin is supposed to use when authenticating.
