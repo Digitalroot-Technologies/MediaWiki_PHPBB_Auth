@@ -1,7 +1,5 @@
 <?php
 
-    /* vim: set expandtab tabstop=4 shiftwidth=4 softtabstop=4: */
-
     /**
      * AuthPlugin converted into a interface. I left the original header
      * because the changes I made were very minor.
@@ -24,17 +22,13 @@
      * @package MediaWiki
      * @subpackage Auth_PHPBB
      * @author Nicholas Dunnaway
-     * @copyright 2007 php|uber.leet
+     * @copyright 2007-2016 Digitalroot Technologies
      * @license http://www.gnu.org/copyleft/gpl.html
-     * @CVS: $Id: iAuthPlugin.php,v 1.0.0 2007/10/01 16:46:22 nkd Exp $
-     * @link http://uber.leetphp.com
-     * @version $Revision: 1.0.0 $
-     *
+     * @link https://github.com/Digitalroot/MediaWiki_PHPBB_Auth
+     * @link http://digitalroot.net/
      */
 
 
-/**
- */
 # Copyright (C) 2004 Brion Vibber <brion@pobox.com>
 # http://www.mediawiki.org/
 #
@@ -232,5 +226,3 @@ interface iAuthPlugin {
 	 */
 	public function getCanonicalName( $username );
 }
-
-?>
