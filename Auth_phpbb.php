@@ -323,7 +323,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         // Check Database for username and password.
         $fstrMySQLQuery = sprintf("SELECT `user_id`, `username_clean`, `user_password`
                 FROM `%s`
-                WHERE `username_clean` = ?
+                WHERE `username_clean` = ? AND `user_type` != 1
                 LIMIT 1", $this->_UserTB);
 
         // Query Database.
