@@ -881,7 +881,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         }
 
         $username = $this->utf8($username); // Convert to UTF8
-        $username = $fresMySQLConnection->esacpe_string($username);
+        $username = $fresMySQLConnection->escape_string($username);
 
         // Check Database for username.
         $fstrMySQLQuery = sprintf("SELECT `username_clean`
