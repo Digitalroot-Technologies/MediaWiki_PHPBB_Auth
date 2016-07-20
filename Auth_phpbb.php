@@ -249,6 +249,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
 
         // Specify who may create new accounts:
         $GLOBALS['wgGroupPermissions']['*']['createaccount'] = false;
+        $GLOBALS['wgGroupPermissions']['*']['autocreateaccount'] = true;
 
         // Load Hooks
         $GLOBALS['wgHooks']['UserLoginForm'][]      = array($this, 'onUserLoginForm', false);
