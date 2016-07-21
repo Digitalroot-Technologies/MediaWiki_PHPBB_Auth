@@ -431,7 +431,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         else
         {
             // Connect to database.
-            $fresMySQLConnection = mysql_connect($GLOBALS['wgDBserver'], $GLOBALS['wgDBuser'],
+            $fresMySQLConnection = new mysqli($GLOBALS['wgDBserver'], $GLOBALS['wgDBuser'],
                 $GLOBALS['wgDBpassword'], $GLOBALS['wgDBname']);
 
             // Check if we are connected to the database.
