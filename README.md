@@ -33,6 +33,17 @@ Open LocalSettings.php. Put this at the bottom of the file. Edit as needed.
         require_once './extensions/Auth_phpbb.php';
         
         $wgAuth_Config = array(); // Clean.
+
+        $wgAuth_Config['UseCanonicalCase'] = true;      // Setting this to true causes the mediawiki usernames
+                                                        // to match the casing of the phpbb ones (except with
+                                                        // the first letter set uppercase.)
+                                                        // Setting this to false causes usernames to be all
+                                                        // lowercase except for the first character.
+                                                        // Before June 2016 this setting was always false,
+                                                        // changing it to true on an install where it previously
+                                                        // was false will cause users with uppercase characters
+                                                        // to appear as separate users from their previous
+                                                        // all-lowercase account.
         
         $wgAuth_Config['WikiGroupName'] = 'Wiki';       // Name of your PHPBB group
                                                         // users need to be a member

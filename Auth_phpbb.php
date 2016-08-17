@@ -213,6 +213,18 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
     private $_WikiGroupName;
 
     /**
+     * Whether to set usernames from the
+     * username_clean (false) colum or username
+     * (true) column in the phpbb users tables.
+     * Should be true in most cases, is added for
+     * legacy support due to previous versions
+     * setting usernames to lowercase.
+     *
+     * @var bool
+     */
+    private $_UseCanonicalCase;
+
+    /**
      * Constructor
      *
      * @param array $aConfig
@@ -233,6 +245,13 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         $this->_UseWikiGroup    = $aConfig['UseWikiGroup'];
         $this->_WikiGroupName   = $aConfig['WikiGroupName'];
         $this->_LoginMessage    = $aConfig['LoginMessage'];
+
+        // If undefined (i.e. user is using an old config) set to false
+        if (isset($aConfig['UseCanonicalCase'])) {
+            $this->_UseCanonicalCase = $aConfig['UseCanonicalCase'];
+        } else {
+            $this->_UseCanonicalCase = false;
+        }
 
         // Only assign the database values if a external database is used.
         if ($this->_UseExtDatabase == true)
@@ -478,10 +497,10 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         $username = $fresMySQLConnection->escape_string($username);
 
         // Check Database for username. We will return the correct casing of the name.
-        $fstrMySQLQuery = sprintf("SELECT `username_clean`
+        $fstrMySQLQuery = sprintf("SELECT `%s`
                 FROM `%s`
                 WHERE `username_clean` = ?
-                LIMIT 1", $this->_UserTB);
+                LIMIT 1", ($this->_UseCanonicalCase ? "username" : "username_clean"), $this->_UserTB);
 
         // Query Database.
         $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
