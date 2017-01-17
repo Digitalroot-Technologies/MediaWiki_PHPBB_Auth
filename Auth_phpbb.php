@@ -685,7 +685,14 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
                     throw new Exception('Unable to find phpbb\'s utf_tools.php file at (' . $this->_PathToPHPBB . '/includes/utf/utf_tools.php). Please check that phpBB is installed.');
                 }
 
+                // We need the composer autoloader because phpBB 3.2+ uses patchwork/utf.
+                if (!is_file($this->_PathToPHPBB . 'vendor/autoload.php'))
+                {
+                    throw new Exception('Unable to find phpbb\'s autoload.php file at (' . $this->_PathToPHPBB . '/vendor/autoload.php). Please check that phpBB is installed.');
+                }
+
                 // Load the phpBB file.
+                require_once $this->_PathToPHPBB . 'vendor/autoload.php';
                 require_once $this->_PathToPHPBB . 'includes/utf/utf_tools.php';
                 break;
 
