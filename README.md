@@ -7,9 +7,11 @@ MediaWiki Page: http://www.mediawiki.org/wiki/Extension:PHPBB/Users_Integration
 
 REQUIREMENTS
 =================
-This version is for phpBB3.
 
-The extension requires PHP5, MySQL 5, MediaWiki 1.11+ and phpBB3.
+* PHP5
+* MySQL 5
+* MediaWiki 1.11+ 
+* phpBB 3.2
 
 INSTALL:
 =================
