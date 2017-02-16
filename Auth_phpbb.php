@@ -49,7 +49,7 @@ if (!class_exists('AuthPlugin') || !interface_exists('iAuthPlugin'))
      * Auth Plug-in Interface
      *
      */
-    require_once './extensions/iAuthPlugin.php';
+    require_once './extensions/Auth_phpBB/iAuthPlugin.php';
 
 }
 
@@ -68,7 +68,7 @@ if (!class_exists('PasswordHash'))
      *      http://www.openwall.com/phpass/
      *
      */
-    require_once './extensions/PasswordHash.php';
+    require_once './extensions/Auth_phpBB/PasswordHash.php';
 }
 
 /**
@@ -121,6 +121,13 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
     private $_MySQL_Host;
 
     /**
+     * phpBB MySQL Port Number.
+     *
+     * @var string
+     */
+    private $_MySQL_Port;
+
+    /**
      * phpBB MySQL Password.
      *
      * @var string
@@ -154,6 +161,13 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
      * @var string
      */
     private $_PathToPHPBB;
+
+    /**
+     * URL to the phpBB install. Needed if the forums are hosted on a different sub-domain
+     *
+     * @var string
+     */
+    private $_URLToPHPBB;
 
     /**
      * Name of the phpBB session table for single session sign-on.
@@ -225,10 +239,59 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
     private $_UseCanonicalCase;
 
     /**
+     *
+     * Begin class instance members used For Custom Profile Field feature
+     * (JWPlatt@OpenUru.org)
+     *
+     */
+
+    /**
+     * This tells the Plugin to use a phpBB
+     * profile entry for the wiki user
+     * name lookup if login fails.  This
+     * allows for phpBB/wiki incompatible
+     * usernames to be resolved.
+     *
+     * @var bool
+     */
+    private $_UseWikiProfile;
+
+    /**
+     * Name of your PHPBB profile data table
+     *
+     * @var string
+     */
+    private $_ProfileDataTB;
+
+    /**
+     * Name of profile field in the
+     * profile data table to use for
+     * wikified username lookup
+     *
+     * @var string
+     */
+    private $_ProfileFieldName;
+
+    /**
+     * Class member used to cache canonical name lookup
+     *
+     * @var string
+     */
+    private $_wikiUserName;
+
+    /**
+     * Class member used to cache canonical name lookup
+     *
+     * @var string
+     */
+    private $_phpBBUserName;
+
+    /**
      * Constructor
      *
      * @param array $aConfig
      */
+
     function __construct($aConfig)
     {
         // Set some values phpBB needs.
@@ -253,13 +316,29 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
             $this->_UseCanonicalCase = false;
         }
 
-        // Only assign the database values if a external database is used.
+        // If undefined (i.e. user is using an old config) set to false
+        if (isset($aConfig['UseWikiProfile'])) {
+            $this->_UseWikiProfile   = $aConfig['UseWikiProfile']; // Allow phpBB-to-wiki username translation
+            $this->_ProfileDataTB    = $aConfig['ProfileDataTB']; // phpBB profile field data table
+            $this->_ProfileFieldName = $aConfig['ProfileFieldName']; // phpBB custom profile field name
+        } else {
+            $this->_UseWikiProfile = false;
+        }
+
+        // Only assign the database values if an external database is used.
         if ($this->_UseExtDatabase == true)
         {
             $this->_MySQL_Database  = $aConfig['MySQL_Database'];
             $this->_MySQL_Host      = $aConfig['MySQL_Host'];
             $this->_MySQL_Password  = $aConfig['MySQL_Password'];
             $this->_MySQL_Username  = $aConfig['MySQL_Username'];
+        }
+
+        // If undefined (i.e. user is using an old config) set to empty
+        if (isset($aConfig['MySQL_Port'])) {
+            $this->_MySQL_Port = $aConfig['MySQL_Port']; // Facilitate easy port declaration
+        } else {
+            $this->_MySQL_Port = '';
         }
 
         // Set some MediaWiki Values
@@ -337,8 +416,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         // Connect to the database.
         $fresMySQLConnection = $this->connect();
 
-        $username = $this->utf8($username); // Convert to UTF8
-        $username = $fresMySQLConnection->escape_string($username);
+        $username = $this->_phpBBUserName; // Override
 
         // Check Database for username and password.
         $fstrMySQLQuery = sprintf("SELECT `user_id`, `username_clean`, `user_password`
@@ -436,8 +514,11 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         // Check if the phpBB tables are in a different database then the Wiki.
         if ($this->_UseExtDatabase == true)
         {
+            // Use specified port if one given
+            $dbHostAddr = ($this->_MySQL_Port == '' ? $this->_MySQL_Host : $this->_MySQL_Host . ':' . $this->_MySQL_Port);
+
             // Connect to database. I supress the error here.
-            $fresMySQLConnection = new mysqli($this->_MySQL_Host, $this->_MySQL_Username,
+            $fresMySQLConnection = new mysqli($dbHostAddr, $this->_MySQL_Username,
                 $this->_MySQL_Password, $this->_MySQL_Database);
 
             // Check if we are connected to the database.
@@ -490,11 +571,16 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
      */
     public function getCanonicalName( $username )
     {
+        if (filter_var($username, FILTER_VALIDATE_IP))
+        {
+          return ''; // Discard IP address (anonymouse users)
+        }
+
         // Connect to the database.
         $fresMySQLConnection = $this->connect();
 
-        $username = $this->utf8($username); // Convert to UTF8
-        $username = $fresMySQLConnection->escape_string($username);
+        $this->_wikiUserName = $username; // Preserve and cache user's wikified username
+        $this->_phpBBUserName = $this->utf8($username); // Convert to UTF8 and cache for later use
 
         // Check Database for username. We will return the correct casing of the name.
         $fstrMySQLQuery = sprintf("SELECT `%s`
@@ -504,15 +590,50 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
 
         // Query Database.
         $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
-        $fresStatement->bind_param('s', $username);
+        $fresStatement->bind_param('s', $this->_phpBBUserName); // bind_param escapes the string
         $fresStatement->execute();
 
         // Bind result
-        $fresStatement->bind_result($resultUsernameClean);
+        $fresStatement->bind_result($resultWikiUsername);
 
         while($fresStatement->fetch())
         {
-            return ucfirst($resultUsernameClean);
+            $this->_wikiUserName = ucfirst($resultWikiUsername); // Preserve capped phpBB username when wikified version is valid
+            return $this->_wikiUserName;
+        }
+
+        // If here, username is invalid or is incompatible with wiki username.
+        // Maybe check phpBB custom profile for translated username.
+
+        // Check whether to use a phpBB custom profile field for a valid wiki username
+        if (isset($this->_UseWikiProfile) && $this->_UseWikiProfile === false)
+        {
+            return $username; // Just return invalid username
+        }
+
+        // Check Database for wikiusername. We will return the wikified version of username.
+        $fstrMySQLQuery = sprintf("SELECT `username_clean`, `%3\$s`
+                FROM `%2\$s`, `%1\$s`
+                WHERE lcase(`%3\$s`) = lcase(?)
+                AND `%2\$s`.`user_id` = `%1\$s`.`user_id`
+                LIMIT 1",
+                $this->_UserTB,
+                $this->_ProfileDataTB,
+                $this->_ProfileFieldName);
+
+        // Query Database.
+        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
+        $fresStatement->bind_param('s', $this->_wikiUserName);
+        $fresStatement->execute();
+
+        // Bind result
+        $fresStatement->bind_result($resultphpBBUsername, $resultWikiUsername);
+
+        while($fresStatement->fetch())
+        {
+         $this->_phpBBUserName = $resultphpBBUsername;
+         $this->_wikiUserName = ucfirst($resultWikiUsername); // Save wikified username (cap first letter)
+         return $this->_wikiUserName;
         }
 
         // At this point the username is invalid and should return just as it was passed.
@@ -539,22 +660,21 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         // Connect to the database.
         $fresMySQLConnection = $this->connect();
 
-        $username = $this->utf8($user->mName); // Convert to UTF8
-        $username = $fresMySQLConnection->escape_string($username);
+        $username = $this->_phpBBUserName; // Override
 
         // Check Database for username and email address.
-        $fstrMySQLQuery = sprintf("SELECT `username_clean`, `user_email`
+        $fstrMySQLQuery = sprintf("SELECT `user_email`
                 FROM `%s`
                 WHERE `username_clean` = ?
                 LIMIT 1", $this->_UserTB);
 
         // Query Database.
         $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
-        $fresStatement->bind_param('s', $username);
+        $fresStatement->bind_param('s', $username); // bind_param escapes the string
         $fresStatement->execute();
 
         // Bind result
-        $fresStatement->bind_result($resultUsernameClean, $resultUserEmail);
+        $fresStatement->bind_result($resultUserEmail);
 
         while($fresStatement->fetch())
         {
@@ -584,8 +704,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
 
         // Connect to the database.
         $fresMySQLConnection = $this->connect();
-        $username = $this->utf8($username); // Convert to UTF8
-        $username = $fresMySQLConnection->escape_string($username);
+        $username = $this->_phpBBUserName; // Override
 
         // If not an array make this an array.
         if (!is_array($this->_WikiGroupName))
@@ -608,7 +727,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
                     WHERE `username_clean` = ?",
                 $this->_UserTB);
             $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
-            $fresStatement->bind_param('s', $username);
+            $fresStatement->bind_param('s', $username); // bind_param escapes the string
             $fresStatement->execute();
             $fresStatement->bind_result($resultUserID);
             $user_id = -1;
@@ -712,13 +831,17 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
      * to find a few.
      *
      * @param UserLoginTemplate $template
+     * @param $type String:  'signup' or 'login' (added in 1.16).
      * @access public
      */
     public function modifyUITemplate( &$template, &$type )
     {
-        $template->set('usedomain',   false); // We do not want a domain name.
-        $template->set('create',      false); // Remove option to create new accounts from the wiki.
-        $template->set('useemail',    false); // Disable the mail new password box.
+        if ($type == 'login')
+        {
+            $template->set('usedomain',   false); // We do not want a domain name.
+            $template->set('create',      false); // Remove option to create new accounts from the wiki.
+            $template->set('useemail',    false); // Disable the mail new password box.
+        }
     }
 
 
@@ -907,8 +1030,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
             print $username . ' : ' . $this->utf8($username); // Debug
         }
 
-        $username = $this->utf8($username); // Convert to UTF8
-        $username = $fresMySQLConnection->escape_string($username);
+        $username = $this->_phpBBUserName; // Override
 
         // Check Database for username.
         $fstrMySQLQuery = sprintf("SELECT `username_clean`
@@ -952,7 +1074,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
     private function utf8($username)
     {
         $this->loadPHPFiles('UTF8'); // Load files needed to clean username.
-        error_reporting(E_ALL ^ E_NOTICE); // remove notices because phpBB does not use include once.
+        error_reporting(E_ALL ^ E_NOTICE ^ E_STRICT); // remove notices because phpBB does not use include once, strict to address PHP 5.4 issue.
         $username = utf8_clean_string($username);
         error_reporting(E_ALL);
         return $username;
