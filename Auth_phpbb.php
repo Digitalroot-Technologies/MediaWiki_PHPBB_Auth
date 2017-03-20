@@ -799,20 +799,23 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         {
             case 'UTF8':
                 // Check for UTF file.
-                if (!is_file($this->_PathToPHPBB . 'includes/utf/utf_tools.php'))
+                $utfToolsPath = implode('/',array_filter(explode('/', $this->_PathToPHPBB . '/includes/utf/utf_tools.php')));
+                $autoloadPath = implode('/',array_filter(explode('/', $this->_PathToPHPBB . '/vendor/autoload.php')));
+
+                if (!is_file($utfToolsPath))
                 {
-                    throw new Exception('Unable to find phpbb\'s utf_tools.php file at (' . $this->_PathToPHPBB . '/includes/utf/utf_tools.php). Please check that phpBB is installed.');
+                    throw new Exception('Unable to find phpbb\'s utf_tools.php file at (' . $utfToolsPath . '). Please check that phpBB is installed.');
                 }
 
                 // We need the composer autoloader because phpBB 3.2+ uses patchwork/utf.
-                if (!is_file($this->_PathToPHPBB . 'vendor/autoload.php'))
+                if (!is_file($autoloadPath))
                 {
-                    throw new Exception('Unable to find phpbb\'s autoload.php file at (' . $this->_PathToPHPBB . '/vendor/autoload.php). Please check that phpBB is installed.');
+                    throw new Exception('Unable to find phpbb\'s autoload.php file at (' . $autoloadPath . '). Please check that phpBB is installed.');
                 }
 
                 // Load the phpBB file.
-                require_once $this->_PathToPHPBB . 'vendor/autoload.php';
-                require_once $this->_PathToPHPBB . 'includes/utf/utf_tools.php';
+                require_once $autoloadPath;
+                require_once $utfToolsPath;
                 break;
 
             case 'phpBBLogin':
