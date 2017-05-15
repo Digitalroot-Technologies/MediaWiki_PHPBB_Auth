@@ -664,11 +664,8 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
      */
     private function loadPHPFiles($FileSet)
     {
-        $GLOBALS['phpbb_root_path'] = $this->_PathToPHPBB; // Path to phpBB
+        $GLOBALS['phpbb_root_path'] = rtrim($this->_PathToPHPBB, '/') . '/'; // Path to phpBB
         $GLOBALS['phpEx']           = substr(strrchr(__FILE__, '.'), 1); // File Ext.
-
-        //$phpbb_root_path = $this->_PathToPHPBB; // Path to phpBB
-        //$phpEx = substr(strrchr(__FILE__, '.'), 1); // File Ext.
 
         // Check that path is valid.
         if (!is_dir($this->_PathToPHPBB))
@@ -680,8 +677,8 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         {
             case 'UTF8':
                 // Check for UTF file.
-                $utfToolsPath = implode('/',array_filter(explode('/', $this->_PathToPHPBB . '/includes/utf/utf_tools.php')));
-                $autoloadPath = implode('/',array_filter(explode('/', $this->_PathToPHPBB . '/vendor/autoload.php')));
+                $utfToolsPath = rtrim($this->_PathToPHPBB, '/') . '/includes/utf/utf_tools.php';
+                $autoloadPath = rtrim($this->_PathToPHPBB, '/') . '/vendor/autoload.php';
 
                 if (!is_file($utfToolsPath))
                 {
