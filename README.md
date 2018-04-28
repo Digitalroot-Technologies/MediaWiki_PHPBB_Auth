@@ -22,7 +22,7 @@ You will need to put the name you choose in the code below.
 **PHPBB GROUP NOTE**: In order for a user to be able to use the wiki they will need to  
 be a member of the group you made in the step above.
 
-* Put Auth_phpbb.php in /extensions/Auth_phpBB  
+* Put Auth_phBBb.php in /extensions/Auth_phpBB  
 * Put iAuthPlugin.php in /extensions/Auth_phpBB  
 * Put PasswordHash.php in /extensions/Auth_phpBB  
 
@@ -61,7 +61,7 @@ Open LocalSettings.php. Put this at the bottom of the file. Edit as needed.
     /*-----------------[ Everything below this line. ]-----------------*/
     
     // phpBB User Database Plugin. (Requires MySQL Database)
-    require_once "$IP/extensions/Auth_phpBB/Auth_phpbb.php";
+    require_once "$IP/extensions/Auth_phpBB/Auth_phpBB.php";
     
     $wgAuth_Config = array(); // Clean.
     
