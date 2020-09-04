@@ -8,9 +8,9 @@ MediaWiki Page: http://www.mediawiki.org/wiki/Extension:PHPBB/Users_Integration
 REQUIREMENTS
 =================
 
-* PHP5
+* PHP5, works with PHP 7.x
 * MySQL 5
-* MediaWiki 1.11+
+* MediaWiki 1.11+ (tested with 1.31 where it's deprecated, but 1.33 removes auth plugins?)
 * phpBB 3.2
 
 INSTALL:
