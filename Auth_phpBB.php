@@ -1,44 +1,41 @@
 <?php
 
-    /**
-     * This file makes MediaWiki use a phpbb user database to
-     * authenticate with. This forces users to have a PHPBB account
-     * in order to log into the wiki. This can also force the user to
-     * be in a group called Wiki.
-     *
-     * With 3.0.x release this code was rewritten to make better use of
-     * objects and php5. Requires MediaWiki 1.11.x, PHPBB3 and PHP5.
-     *
-     * This program is free software; you can redistribute it and/or modify
-     * it under the terms of the GNU General Public License as published by
-     * the Free Software Foundation; either version 2 of the License, or
-     * (at your option) any later version.
-     *
-     * This program is distributed in the hope that it will be useful,
-     * but WITHOUT ANY WARRANTY; without even the implied warranty of
-     * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-     * GNU General Public License for more details.
-     *
-     * You should have received a copy of the GNU General Public License along
-     * with this program; if not, write to the Free Software Foundation, Inc.,
-     * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
-     * http://www.gnu.org/copyleft/gpl.html
-     *
-     * @package MediaWiki
-     * @subpackage Auth_phpBB
-     * @author Nicholas Dunnaway
-     * @copyright 2004-2016 Digitalroot Technologies
-     * @license http://www.gnu.org/copyleft/gpl.html
-     * @link https://github.com/Digitalroot/MediaWiki_PHPBB_Auth
-     * @link http://digitalroot.net/
-     *
-     */
-
-// error_reporting(E_ALL); // Debug
+/**
+ * This file makes MediaWiki use a phpbb user database to
+ * authenticate with. This forces users to have a PHPBB account
+ * in order to log into the wiki. This can also force the user to
+ * be in a group called Wiki.
+ *
+ * With 4.0.x release this code was rewritten to make better use of
+ * objects and php7. Works with MediaWiki 1.31.x (LTS), PHPBB3.3.x and PHP7.4.
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License along
+ * with this program; if not, write to the Free Software Foundation, Inc.,
+ * 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+ * http://www.gnu.org/copyleft/gpl.html
+ *
+ * @package MediaWiki
+ * @subpackage Auth_phpBB
+ * @author Nicholas Dunnaway
+ * @copyright 2004-2016 Digitalroot Technologies
+ * @license http://www.gnu.org/copyleft/gpl.html
+ * @link https://github.com/Digitalroot/MediaWiki_PHPBB_Auth
+ * @link http://digitalroot.net/
+ *
+ */
 
 // First check if class and interface has already been defined.
-if (!class_exists('AuthPlugin') || !interface_exists('iAuthPlugin'))
-{
+if (!class_exists('AuthPlugin') || !interface_exists('iAuthPlugin')) {
     /**
      * Auth Plug-in
      *
@@ -51,24 +48,6 @@ if (!class_exists('AuthPlugin') || !interface_exists('iAuthPlugin'))
      */
     require_once './extensions/Auth_phpBB/iAuthPlugin.php';
 
-}
-
-// First check if the PasswordHash class has already been defined.
-if (!class_exists('PasswordHash'))
-{
-    /**
-     * PasswordHash Class
-     *
-     * Portable PHP password hashing framework.
-     *
-     * Written by Solar Designer <solar at openwall.com> in 2004-2006
-     * and placed in the public domain.
-     *
-     * The homepage URL for this framework is:
-     *      http://www.openwall.com/phpass/
-     *
-     */
-    require_once './extensions/Auth_phpBB/PasswordHash.php';
 }
 
 /**
@@ -298,16 +277,16 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         define('IN_PHPBB', true); // We are secure.
 
         // Read config
-        $this->_GroupsTB        = $aConfig['GroupsTB'];
-        $this->_NoWikiError     = $aConfig['NoWikiError'];
-        $this->_PathToPHPBB     = $aConfig['PathToPHPBB'];
-        $this->_SessionTB       = @$aConfig['SessionTB'];
-        $this->_UseExtDatabase  = $aConfig['UseExtDatabase'];
-        $this->_User_GroupTB    = $aConfig['User_GroupTB'];
-        $this->_UserTB          = $aConfig['UserTB'];
-        $this->_UseWikiGroup    = $aConfig['UseWikiGroup'];
-        $this->_WikiGroupName   = $aConfig['WikiGroupName'];
-        $this->_LoginMessage    = $aConfig['LoginMessage'];
+        $this->_GroupsTB = $aConfig['GroupsTB'];
+        $this->_NoWikiError = $aConfig['NoWikiError'];
+        $this->_PathToPHPBB = $aConfig['PathToPHPBB'];
+        $this->_SessionTB = @$aConfig['SessionTB'];
+        $this->_UseExtDatabase = $aConfig['UseExtDatabase'];
+        $this->_User_GroupTB = $aConfig['User_GroupTB'];
+        $this->_UserTB = $aConfig['UserTB'];
+        $this->_UseWikiGroup = $aConfig['UseWikiGroup'];
+        $this->_WikiGroupName = $aConfig['WikiGroupName'];
+        $this->_LoginMessage = $aConfig['LoginMessage'];
 
         // If undefined (i.e. user is using an old config) set to false
         if (isset($aConfig['UseCanonicalCase'])) {
@@ -318,20 +297,19 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
 
         // If undefined (i.e. user is using an old config) set to false
         if (isset($aConfig['UseWikiProfile'])) {
-            $this->_UseWikiProfile   = $aConfig['UseWikiProfile']; // Allow phpBB-to-wiki username translation
-            $this->_ProfileDataTB    = $aConfig['ProfileDataTB']; // phpBB profile field data table
+            $this->_UseWikiProfile = $aConfig['UseWikiProfile']; // Allow phpBB-to-wiki username translation
+            $this->_ProfileDataTB = $aConfig['ProfileDataTB']; // phpBB profile field data table
             $this->_ProfileFieldName = $aConfig['ProfileFieldName']; // phpBB custom profile field name
         } else {
             $this->_UseWikiProfile = false;
         }
 
         // Only assign the database values if an external database is used.
-        if ($this->_UseExtDatabase == true)
-        {
-            $this->_MySQL_Database  = $aConfig['MySQL_Database'];
-            $this->_MySQL_Host      = $aConfig['MySQL_Host'];
-            $this->_MySQL_Password  = $aConfig['MySQL_Password'];
-            $this->_MySQL_Username  = $aConfig['MySQL_Username'];
+        if ($this->_UseExtDatabase == true) {
+            $this->_MySQL_Database = $aConfig['MySQL_Database'];
+            $this->_MySQL_Host = $aConfig['MySQL_Host'];
+            $this->_MySQL_Password = $aConfig['MySQL_Password'];
+            $this->_MySQL_Username = $aConfig['MySQL_Username'];
         }
 
         // If undefined (i.e. user is using an old config) set to empty
@@ -350,9 +328,9 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         $GLOBALS['wgGroupPermissions']['*']['autocreateaccount'] = true;
 
         // Load Hooks
-        $GLOBALS['wgHooks']['UserLoginForm'][]      = array($this, 'onUserLoginForm', false);
-        $GLOBALS['wgHooks']['UserLoginComplete'][]  = $this;
-        $GLOBALS['wgHooks']['UserLogout'][]         = $this;
+        $GLOBALS['wgHooks']['UserLoginForm'][] = array($this, 'onUserLoginForm', false);
+        $GLOBALS['wgHooks']['UserLoginComplete'][] = $this;
+        $GLOBALS['wgHooks']['UserLogout'][] = $this;
     }
 
 
@@ -382,7 +360,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
      * @return bool
      * @access public
      */
-    public function addUser( $user, $password, $email='', $realname='' )
+    public function addUser($user, $password, $email = '', $realname = '')
     {
         return false;
     }
@@ -432,26 +410,16 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         // Bind results
         $fresStatement->bind_result($resultUserID, $resultUsernameClean, $resultUserPassword);
 
-        while($fresStatement->fetch())
-        {
-            // Use new phpass class
-            $PasswordHasher = new PasswordHash(8, TRUE);
+        while ($fresStatement->fetch()) {
+            $this->loadPHPFiles('Password');
 
-            // Print the hash of the password entered by the user and the
-            // password hash from the database to the screen.
-            // While this will display its not effective anymore.
-            if ($this->_debug)
-            {
-                //print md5($password) . ':' . $faryMySQLResult['user_password'] . '<br />'; // Debug
-                print $PasswordHasher->HashPassword($password) . ':' . $resultUserPassword . '<br />'; // Debug
-            }
+            $passwords_manager = $this->buildPhpBBPasswordmanager();
 
             /**
              * Check if password submited matches the PHPBB password.
              * Also check if user is a member of the phpbb group 'wiki'.
              */
-            if ($PasswordHasher->CheckPassword($password, $resultUserPassword) && $this->isMemberOfWikiGroup($username))
-            {
+            if ($passwords_manager->check($password, $resultUserPassword) && $this->isMemberOfWikiGroup($username)) {
                 $this->_UserID = $resultUserID;
                 return true;
             }
@@ -512,8 +480,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
     private function connect()
     {
         // Check if the phpBB tables are in a different database then the Wiki.
-        if ($this->_UseExtDatabase == true)
-        {
+        if ($this->_UseExtDatabase == true) {
             // Use specified port if one given
             $dbHostAddr = ($this->_MySQL_Port == '' ? $this->_MySQL_Host : $this->_MySQL_Host . ':' . $this->_MySQL_Port);
 
@@ -522,21 +489,17 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
                 $this->_MySQL_Password, $this->_MySQL_Database);
 
             // Check if we are connected to the database.
-            if ($fresMySQLConnection->connect_errno > 0)
-            {
+            if ($fresMySQLConnection->connect_errno > 0) {
                 $this->mySQLError('There was a problem when connecting to the phpBB database.<br />' .
                     'Check your Host, Username, and Password settings.<br />');
             }
-        }
-        else
-        {
+        } else {
             // Connect to database.
             $fresMySQLConnection = new mysqli($GLOBALS['wgDBserver'], $GLOBALS['wgDBuser'],
                 $GLOBALS['wgDBpassword'], $GLOBALS['wgDBname']);
 
             // Check if we are connected to the database.
-            if ($fresMySQLConnection->connect_errno > 0)
-            {
+            if ($fresMySQLConnection->connect_errno > 0) {
                 $this->mySQLError('There was a problem when connecting to the phpBB database.<br />' .
                     'Check your Host, Username, and Password settings.<br />');
             }
@@ -569,11 +532,10 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
      *
      * @return string
      */
-    public function getCanonicalName( $username )
+    public function getCanonicalName($username)
     {
-        if (filter_var($username, FILTER_VALIDATE_IP))
-        {
-          return ''; // Discard IP address (anonymouse users)
+        if (filter_var($username, FILTER_VALIDATE_IP)) {
+            return ''; // Discard IP address (anonymouse users)
         }
 
         // Connect to the database.
@@ -596,8 +558,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         // Bind result
         $fresStatement->bind_result($resultWikiUsername);
 
-        while($fresStatement->fetch())
-        {
+        while ($fresStatement->fetch()) {
             $this->_wikiUserName = ucfirst($resultWikiUsername); // Preserve capped phpBB username when wikified version is valid
             return $this->_wikiUserName;
         }
@@ -606,8 +567,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         // Maybe check phpBB custom profile for translated username.
 
         // Check whether to use a phpBB custom profile field for a valid wiki username
-        if (isset($this->_UseWikiProfile) && $this->_UseWikiProfile === false)
-        {
+        if (isset($this->_UseWikiProfile) && $this->_UseWikiProfile === false) {
             return $username; // Just return invalid username
         }
 
@@ -617,9 +577,9 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
                 WHERE lcase(`%3\$s`) = lcase(?)
                 AND `%2\$s`.`user_id` = `%1\$s`.`user_id`
                 LIMIT 1",
-                $this->_UserTB,
-                $this->_ProfileDataTB,
-                $this->_ProfileFieldName);
+            $this->_UserTB,
+            $this->_ProfileDataTB,
+            $this->_ProfileFieldName);
 
         // Query Database.
         $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
@@ -629,11 +589,10 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         // Bind result
         $fresStatement->bind_result($resultphpBBUsername, $resultWikiUsername);
 
-        while($fresStatement->fetch())
-        {
-         $this->_phpBBUserName = $resultphpBBUsername;
-         $this->_wikiUserName = ucfirst($resultWikiUsername); // Save wikified username (cap first letter)
-         return $this->_wikiUserName;
+        while ($fresStatement->fetch()) {
+            $this->_phpBBUserName = $resultphpBBUsername;
+            $this->_wikiUserName = ucfirst($resultWikiUsername); // Save wikified username (cap first letter)
+            return $this->_wikiUserName;
         }
 
         // At this point the username is invalid and should return just as it was passed.
@@ -655,7 +614,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
      * @param $autocreate bool True if user is being autocreated on login
      * @access public
      */
-    public function initUser( &$user, $autocreate=false )
+    public function initUser(&$user, $autocreate = false)
     {
         // Connect to the database.
         $fresMySQLConnection = $this->connect();
@@ -676,10 +635,9 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         // Bind result
         $fresStatement->bind_result($resultUserEmail);
 
-        while($fresStatement->fetch())
-        {
-            $user->mEmail       = $resultUserEmail; // Set Email Address.
-            $user->mRealName    = 'I need to Update My Profile';  // Set Real Name.
+        while ($fresStatement->fetch()) {
+            $user->mEmail = $resultUserEmail; // Set Email Address.
+            $user->mRealName = 'I need to Update My Profile';  // Set Real Name.
         }
     }
 
@@ -697,8 +655,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
     {
         // In LocalSettings.php you can control if being a member of a wiki
         // is required or not.
-        if (isset($this->_UseWikiGroup) && $this->_UseWikiGroup === false)
-        {
+        if (isset($this->_UseWikiGroup) && $this->_UseWikiGroup === false) {
             return true;
         }
 
@@ -707,13 +664,11 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         $username = $this->_phpBBUserName; // Override
 
         // If not an array make this an array.
-        if (!is_array($this->_WikiGroupName))
-        {
+        if (!is_array($this->_WikiGroupName)) {
             $this->_WikiGroupName = array($this->_WikiGroupName);
         }
 
-        foreach ($this->_WikiGroupName as $WikiGrpName)
-        {
+        foreach ($this->_WikiGroupName as $WikiGrpName) {
             /**
              *  This is a great query. It takes the username and gets the userid. Then
              *  it gets the group_id number of the the Wiki group. Last it checks if the
@@ -731,8 +686,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
             $fresStatement->execute();
             $fresStatement->bind_result($resultUserID);
             $user_id = -1;
-            while ($fresStatement->fetch())
-            {
+            while ($fresStatement->fetch()) {
                 $user_id = $resultUserID;
             }
 
@@ -745,8 +699,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
             $fresStatement->bind_result($resultGroupID);
 
             $group_id = -1;
-            while ($fresStatement->fetch())
-            {
+            while ($fresStatement->fetch()) {
                 $group_id = $resultGroupID;
             }
 
@@ -763,10 +716,8 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
             $fresStatement->bind_result($result);
 
             // Check for a true or false response.
-            while($fresStatement->fetch())
-            {
-                if ($result == '1')
-                {
+            while ($fresStatement->fetch()) {
+                if ($result == '1') {
                     return true; // User is in Wiki group.
                 }
             }
@@ -784,29 +735,25 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
     private function loadPHPFiles($FileSet)
     {
         $GLOBALS['phpbb_root_path'] = rtrim($this->_PathToPHPBB, '/') . '/'; // Path to phpBB
-        $GLOBALS['phpEx']           = substr(strrchr(__FILE__, '.'), 1); // File Ext.
+        $GLOBALS['phpEx'] = substr(strrchr(__FILE__, '.'), 1); // File Ext.
 
         // Check that path is valid.
-        if (!is_dir($this->_PathToPHPBB))
-        {
+        if (!is_dir($this->_PathToPHPBB)) {
             throw new Exception('Unable to find phpBB installed at (' . $this->_PathToPHPBB . ').');
         }
 
-        switch ($FileSet)
-        {
+        switch ($FileSet) {
             case 'UTF8':
                 // Check for UTF file.
                 $utfToolsPath = rtrim($this->_PathToPHPBB, '/') . '/includes/utf/utf_tools.php';
                 $autoloadPath = rtrim($this->_PathToPHPBB, '/') . '/vendor/autoload.php';
 
-                if (!is_file($utfToolsPath))
-                {
+                if (!is_file($utfToolsPath)) {
                     throw new Exception('Unable to find phpbb\'s utf_tools.php file at (' . $utfToolsPath . '). Please check that phpBB is installed.');
                 }
 
                 // We need the composer autoloader because phpBB 3.2+ uses patchwork/utf.
-                if (!is_file($autoloadPath))
-                {
+                if (!is_file($autoloadPath)) {
                     throw new Exception('Unable to find phpbb\'s autoload.php file at (' . $autoloadPath . '). Please check that phpBB is installed.');
                 }
 
@@ -814,10 +761,37 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
                 require_once $autoloadPath;
                 require_once $utfToolsPath;
                 break;
+            case 'Password':
+                $phpbb = rtrim($this->_PathToPHPBB, '/') . '/phpbb/';
 
-            case 'phpBBLogin':
+                require_once $phpbb . 'config/config.php';
+                require_once $phpbb . 'passwords/helper.php';
+                require_once $phpbb . 'passwords/driver/helper.php';
+
+                require_once $phpbb . 'passwords/driver/driver_interface.php';
+                require_once $phpbb . 'passwords/driver/rehashable_driver_interface.php';
+                require_once $phpbb . 'passwords/driver/base.php';
+                require_once $phpbb . 'passwords/driver/base_native.php';
+
+                require_once $phpbb . 'passwords/driver/argon2i.php';
+                require_once $phpbb . 'passwords/driver/argon2id.php';
+                require_once $phpbb . 'passwords/driver/bcrypt.php';
+                require_once $phpbb . 'passwords/driver/bcrypt_2y.php';
+                require_once $phpbb . 'passwords/driver/salted_md5.php';
+                require_once $phpbb . 'passwords/driver/phpass.php';
+                require_once $phpbb . 'passwords/driver/convert_password.php';
+                require_once $phpbb . 'passwords/driver/sha1_smf.php';
+                require_once $phpbb . 'passwords/driver/sha1.php';
+                require_once $phpbb . 'passwords/driver/sha1_wcf1.php';
+                require_once $phpbb . 'passwords/driver/md5_mybb.php';
+                require_once $phpbb . 'passwords/driver/md5_vb.php';
+                require_once $phpbb . 'passwords/driver/md5_phpbb2.php';
+                require_once $phpbb . 'passwords/driver/sha_xf1.php';
+                require_once $phpbb . 'passwords/manager.php';
+
                 break;
             case 'phpBBLogout':
+            case 'phpBBLogin':
                 break;
         }
     }
@@ -834,13 +808,12 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
      * @param $type String:  'signup' or 'login' (added in 1.16).
      * @access public
      */
-    public function modifyUITemplate( &$template, &$type )
+    public function modifyUITemplate(&$template, &$type)
     {
-        if ($type == 'login')
-        {
-            $template->set('usedomain',   false); // We do not want a domain name.
-            $template->set('create',      false); // Remove option to create new accounts from the wiki.
-            $template->set('useemail',    false); // Disable the mail new password box.
+        if ($type == 'login') {
+            $template->set('usedomain', false); // We do not want a domain name.
+            $template->set('create', false); // Remove option to create new accounts from the wiki.
+            $template->set('useemail', false); // Disable the mail new password box.
         }
     }
 
@@ -851,7 +824,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
      * @param string $message
      * @access public
      */
-    private function mySQLError( $message )
+    private function mySQLError($message)
     {
         throw new Exception('MySQL error: ' . $message . '<br /><br />');
     }
@@ -888,8 +861,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         $template->data['link'] = $this->_LoginMessage;
 
         // If there is an error message display it.
-        if ($errorMessage)
-        {
+        if ($errorMessage) {
             $template->data['message'] = $errorMessage;
             $template->data['messagetype'] = 'error';
         }
@@ -905,8 +877,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
     public function onUserLogout(&$user)
     {
         // User logs out of the wiki we want to log them out of the form too.
-        if (!isset($this->_SessionTB))
-        {
+        if (!isset($this->_SessionTB)) {
             return true; // If the value is not set just return true and move on.
         }
         return true;
@@ -922,7 +893,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
      * @param string $domain
      * @access public
      */
-    public function setDomain( $domain )
+    public function setDomain($domain)
     {
         $this->domain = $domain;
     }
@@ -943,7 +914,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
      * @return bool
      * @access public
      */
-    public function setPassword( $user, $password )
+    public function setPassword($user, $password)
     {
         return true;
     }
@@ -978,7 +949,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
      * @return bool
      * @access public
      */
-    public function updateExternalDB( $user )
+    public function updateExternalDB($user)
     {
         return true;
     }
@@ -998,7 +969,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
      * @access public
      * @return bool
      */
-    public function updateUser( &$user )
+    public function updateUser(&$user)
     {
         return true;
     }
@@ -1025,8 +996,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         $fresMySQLConnection = $this->connect();
 
         // If debug is on print the username entered by the user and the one from the datebase to the screen.
-        if ($this->_debug)
-        {
+        if ($this->_debug) {
             print $username . ' : ' . $this->utf8($username); // Debug
         }
 
@@ -1046,18 +1016,15 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         // Bind result
         $fresStatement->bind_result($resultUsernameClean);
 
-        while($fresStatement->fetch())
-        {
+        while ($fresStatement->fetch()) {
 
             // If debug is on print the username entered by the user and the one from the datebase to the screen.
-            if ($this->_debug)
-            {
+            if ($this->_debug) {
                 print $username . ' : ' . $resultUsernameClean; // Debug
             }
 
             // Double check match.
-            if ($username == $resultUsernameClean)
-            {
+            if ($username == $resultUsernameClean) {
                 return true; // Pass
             }
         }
@@ -1088,8 +1055,35 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
      * @return bool
      * @access public
      */
-    public function validDomain( $domain )
+    public function validDomain($domain)
     {
         return true;
+    }
+
+    /**
+     * @return \phpbb\passwords\manager
+     */
+    public function buildPhpBBPasswordmanager()
+    {
+        $config = new \phpbb\config\config(array());
+        $passwords_helper = new \phpbb\passwords\helper($config);
+        $passwords_driver_helper = new \phpbb\passwords\driver\helper($config);
+        $passwords_drivers = array(
+            'passwords.driver.argon2i' => new \phpbb\passwords\driver\argon2i($config, $passwords_driver_helper),
+            'passwords.driver.argon2id' => new \phpbb\passwords\driver\argon2id($config, $passwords_driver_helper),
+            'passwords.driver.bcrypt' => new \phpbb\passwords\driver\bcrypt($config, $passwords_driver_helper, 10),
+            'passwords.driver.salted_md5' => new \phpbb\passwords\driver\salted_md5($config, $passwords_driver_helper),
+            'passwords.driver.phpass' => new \phpbb\passwords\driver\phpass($config, $passwords_driver_helper),
+            'passwords.driver.convert_password' => new \phpbb\passwords\driver\convert_password($config, $passwords_driver_helper),
+            'passwords.driver.sha1_smf' => new \phpbb\passwords\driver\sha1_smf($config, $passwords_driver_helper),
+            'passwords.driver.sha1' => new \phpbb\passwords\driver\sha1($config, $passwords_driver_helper),
+            'passwords.driver.sha1_wcf1' => new \phpbb\passwords\driver\sha1_wcf1($config, $passwords_driver_helper),
+            'passwords.driver.md5_mybb' => new \phpbb\passwords\driver\md5_mybb($config, $passwords_driver_helper),
+            'passwords.driver.md5_vb' => new \phpbb\passwords\driver\md5_vb($config, $passwords_driver_helper),
+            'passwords.driver.sha_xf1' => new \phpbb\passwords\driver\sha_xf1($config, $passwords_driver_helper),
+        );
+
+        $passwords_manager = new \phpbb\passwords\manager($config, $passwords_drivers, $passwords_helper, array_keys($passwords_drivers));
+        return $passwords_manager;
     }
 }
