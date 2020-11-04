@@ -24,7 +24,6 @@ be a member of the group you made in the step above.
 
 * Put Auth_phpBB.php in /extensions/Auth_phpBB  
 * Put iAuthPlugin.php in /extensions/Auth_phpBB  
-* Put PasswordHash.php in /extensions/Auth_phpBB  
 
 ### OPTIONAL PHPBB-TO-MEDIAWIKI USERNAME TRANSLATION FEATURE:  
 phpBB usernames can be translated to more restrictive wiki usernames.  
