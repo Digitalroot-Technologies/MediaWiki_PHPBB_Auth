@@ -39,26 +39,17 @@
  *
  */
 
+use MediaWiki\Auth\AuthManager;
+use MediaWiki\MediaWikiServices;
+
 /**
- * Handles the Authentication with the PHPBB database.
- *
+ * Class Auth_phpBB
+ * @author  Nicholas Dunnaway, Steve Gilvarry, Jonathan W. Platt, C4K3
+ *          Joel Haasnoot, Casey Peel
+ * @package MediaWiki
+ * @subpackage Auth_PHPBB
  */
-class Auth_phpBB extends AuthPlugin implements iAuthPlugin
-{
-
-    /**
-     * Database Collation (Only change this if your know what to change it to)
-     *
-     * @var string
-     */
-    private $_DB_Collation;
-
-    /**
-     * This turns on and off printing of debug information to the screen.
-     *
-     * @var bool
-     */
-    private $_debug = false;
+class Auth_phpBB extends PluggableAuth {
 
     /**
      * Name of your PHPBB groups table. (i.e. phpbb_groups)
@@ -131,13 +122,6 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
     private $_PathToPHPBB;
 
     /**
-     * URL to the phpBB install. Needed if the forums are hosted on a different sub-domain
-     *
-     * @var string
-     */
-    private $_URLToPHPBB;
-
-    /**
      * Name of the phpBB session table for single session sign-on.
      *
      * @var string
@@ -159,13 +143,6 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
      * @var string
      */
     private $_User_GroupTB;
-
-    /**
-     * UserID of our current user.
-     *
-     * @var int
-     */
-    private $_UserID;
 
     /**
      * Name of your PHPBB user table. (i.e. phpbb_users)
@@ -241,20 +218,6 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
     private $_ProfileFieldName;
 
     /**
-     * Class member used to cache canonical name lookup
-     *
-     * @var string
-     */
-    private $_wikiUserName;
-
-    /**
-     * Class member used to cache canonical name lookup
-     *
-     * @var string
-     */
-    private $_phpBBUserName;
-
-    /**
      * Class member used to store login error message for login form hook
      *
      * @var string
@@ -262,13 +225,13 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
     private $_loginErrorMessage = '';
 
     /**
-     * Constructor
+     * Initialize object configuration
      *
-     * @param array $aConfig
      */
-
-    function __construct($aConfig)
+    function initialize_config()
     {
+        $aConfig = $GLOBALS['wgAuth_Config'];
+
         // Set some values phpBB needs.
         define('IN_PHPBB', true); // We are secure.
 
@@ -330,68 +293,46 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
 
 
     /**
-     * Add a user to the external authentication database.
-     * Return true if successful.
+     * Authenticate user
+     * [required by PluggableAuth]
      *
-     * NOTE: We are not allowed to add users to phpBB from the
-     * wiki so this always returns false.
-     *
-     * @param User $user - only the name should be assumed valid at this point
-     * @param string $password
-     * @param string $email
-     * @param string $realname
-     * @return bool
-     * @access public
+     * @param int &$id
+     * @param string &$username
+     * @param string &$realname
+     * @param string &$email
+     * @param string &$errorMessage
+     * @return bool true if user is authenticated, false otherwise
      */
-    public function addUser($user, $password, $email = '', $realname = '')
+    public function authenticate( &$id, &$username, &$realname, &$email, &$errorMessage )
     {
-        return false;
-    }
+        $this->initialize_config();
 
+        $authManager = $this->getAuthManager();
+        $extraLoginFields = $authManager->getAuthenticationSessionData(
+            PluggableAuthLogin::EXTRALOGINFIELDS_SESSION_KEY
+        );
 
-    /**
-     * Can users change their passwords?
-     *
-     * @return bool
-     */
-    public function allowPasswordChange()
-    {
-        return true;
-    }
+        $username = $extraLoginFields[ExtraLoginFields::USERNAME];
+        $password = $extraLoginFields[ExtraLoginFields::PASSWORD];
 
+        $phpBBUserName = $this->phpbb_clean_username($username);
 
-    /**
-     * Check if a username+password pair is a valid login.
-     * The name will be normalized to MediaWiki's requirements, so
-     * you might need to munge it (for instance, for lowercase initial
-     * letters).
-     *
-     * @param string $username
-     * @param string $password
-     * @return bool
-     * @access public
-     * @todo Check if the password is being changed when it contains a slash or an escape char.
-     */
-    public function authenticate($username, $password)
-    {
         // Connect to the database.
         $fresMySQLConnection = $this->connect();
 
-        $username = $this->_phpBBUserName; // Override
-
         // Check Database for username and password.
-        $fstrMySQLQuery = sprintf("SELECT `user_id`, `username_clean`, `user_password`
+        $fstrMySQLQuery = sprintf("SELECT `user_id`, `username_clean`, `user_password`, `user_email`
                 FROM `%s`
                 WHERE `username_clean` = ? AND `user_type` != 1
                 LIMIT 1", $this->_UserTB);
 
         // Query Database.
         $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
-        $fresStatement->bind_param('s', $username);
+        $fresStatement->bind_param('s', $phpBBUserName);
         $fresStatement->execute();
 
         // Bind results
-        $fresStatement->bind_result($resultUserID, $resultUsernameClean, $resultUserPassword);
+        $fresStatement->bind_result($resultUserID, $resultUsernameClean, $resultUserPassword, $resultUserEmail);
 
         while ($fresStatement->fetch()) {
             $this->loadPHPFiles('Password');
@@ -402,53 +343,40 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
              * Check if password submited matches the PHPBB password.
              * Also check if user is a member of the phpbb group 'wiki'.
              */
-            if ($passwords_manager->check($password, $resultUserPassword) && $this->isMemberOfWikiGroup($username)) {
-                $this->_UserID = $resultUserID;
+            if ($passwords_manager->check($password, $resultUserPassword) && $this->isMemberOfWikiGroup($phpBBUserName)) {
+                $username = $this->getCanonicalName($phpBBUserName);
+                $realname = 'I need to Update My Profile';
+                $email = $resultUserEmail;
+                $id = $resultUserID;
                 return true;
             }
         }
+        $errorMessage = $this->_LoginMessage;
         return false;
     }
 
 
     /**
-     * Return true if the wiki should create a new local account automatically
-     * when asked to login a user who doesn't exist locally but does in the
-     * external auth database.
+     * Save extra attributes after a user has successfully logged in.
+     * [required by PluggableAuth but unused by us]
      *
-     * If you don't automatically create accounts, you must still create
-     * accounts in some way. It's not possible to authenticate without
-     * a local account.
-     *
-     * This is just a question, and shouldn't perform any actions.
-     *
-     * NOTE: I have set this to true to allow the wiki to create accounts.
-     *       Without an accout in the wiki database a user will never be
-     *       able to login and use the wiki. I think the password does not
-     *       matter as long as authenticate() returns true.
-     *
-     * @return bool
-     * @access public
+     * @param int $id user id
      */
-    public function autoCreate()
+    public function saveExtraAttributes( $id )
     {
-        return true;
+        // nothing to do
     }
 
 
     /**
-     * Check to see if external accounts can be created.
-     * Return true if external accounts can be created.
+     * Called upon user logout.
+     * [required by PluggableAuth but unused by us]
      *
-     * NOTE: We are not allowed to add users to phpBB from the
-     * wiki so this always returns false.
-     *
-     * @return bool
-     * @access public
+     * @param User &$user
      */
-    public function canCreateAccounts()
+    public function deauthenticate( User &$user )
     {
-        return false;
+        // nothing to do
     }
 
 
@@ -499,33 +427,17 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
 
 
     /**
-     * This turns on debugging
+     * Return a MediaWiki username from a phpBB username
      *
-     */
-    public function EnableDebug()
-    {
-        $this->_debug = true;
-        return;
-    }
-
-
-    /**
-     * If you want to munge the case of an account name before the final
-     * check, now is your chance.
-     *
+     * @param string $username phpBB username
      * @return string
      */
     public function getCanonicalName($username)
     {
-        if (filter_var($username, FILTER_VALIDATE_IP)) {
-            return ''; // Discard IP address (anonymouse users)
-        }
-
         // Connect to the database.
         $fresMySQLConnection = $this->connect();
 
-        $this->_wikiUserName = $username; // Preserve and cache user's wikified username
-        $this->_phpBBUserName = $this->utf8($username); // Convert to UTF8 and cache for later use
+        $phpBBUserName = $this->phpbb_clean_username($username);
 
         // Check Database for username. We will return the correct casing of the name.
         $fstrMySQLQuery = sprintf("SELECT `%s`
@@ -535,15 +447,14 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
 
         // Query Database.
         $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
-        $fresStatement->bind_param('s', $this->_phpBBUserName); // bind_param escapes the string
+        $fresStatement->bind_param('s', $phpBBUserName); // bind_param escapes the string
         $fresStatement->execute();
 
         // Bind result
         $fresStatement->bind_result($resultWikiUsername);
 
         while ($fresStatement->fetch()) {
-            $this->_wikiUserName = ucfirst($resultWikiUsername); // Preserve capped phpBB username when wikified version is valid
-            return $this->_wikiUserName;
+            return ucfirst($resultWikiUsername); // Preserve capped phpBB username when wikified version is valid
         }
 
         // If here, username is invalid or is incompatible with wiki username.
@@ -555,7 +466,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         }
 
         // Check Database for wikiusername. We will return the wikified version of username.
-        $fstrMySQLQuery = sprintf("SELECT `username_clean`, `%3\$s`
+        $fstrMySQLQuery = sprintf("SELECT `%3\$s`
                 FROM `%2\$s`, `%1\$s`
                 WHERE lcase(`%3\$s`) = lcase(?)
                 AND `%2\$s`.`user_id` = `%1\$s`.`user_id`
@@ -566,62 +477,18 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
 
         // Query Database.
         $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
-        $fresStatement->bind_param('s', $this->_wikiUserName);
+        $fresStatement->bind_param('s', $wikiUsername);
         $fresStatement->execute();
 
         // Bind result
-        $fresStatement->bind_result($resultphpBBUsername, $resultWikiUsername);
+        $fresStatement->bind_result($resultWikiUsername);
 
         while ($fresStatement->fetch()) {
-            $this->_phpBBUserName = $resultphpBBUsername;
-            $this->_wikiUserName = ucfirst($resultWikiUsername); // Save wikified username (cap first letter)
-            return $this->_wikiUserName;
+            return ucfirst($resultWikiUsername);
         }
 
-        // At this point the username is invalid and should return just as it was passed.
+        // At this point the username is invalid and should return just as it was passed.        
         return $username;
-    }
-
-
-    /**
-     * When creating a user account, optionally fill in preferences and such.
-     * For instance, you might pull the email address or real name from the
-     * external user database.
-     *
-     * The User object is passed by reference so it can be modified; don't
-     * forget the & on your function declaration.
-     *
-     * NOTE: This gets the email address from PHPBB for the wiki account.
-     *
-     * @param User $user
-     * @param $autocreate bool True if user is being autocreated on login
-     * @access public
-     */
-    public function initUser(&$user, $autocreate = false)
-    {
-        // Connect to the database.
-        $fresMySQLConnection = $this->connect();
-
-        $username = $this->_phpBBUserName; // Override
-
-        // Check Database for username and email address.
-        $fstrMySQLQuery = sprintf("SELECT `user_email`
-                FROM `%s`
-                WHERE `username_clean` = ?
-                LIMIT 1", $this->_UserTB);
-
-        // Query Database.
-        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
-        $fresStatement->bind_param('s', $username); // bind_param escapes the string
-        $fresStatement->execute();
-
-        // Bind result
-        $fresStatement->bind_result($resultUserEmail);
-
-        while ($fresStatement->fetch()) {
-            $user->mEmail = $resultUserEmail; // Set Email Address.
-            $user->mRealName = 'I need to Update My Profile';  // Set Real Name.
-        }
     }
 
 
@@ -644,7 +511,6 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
 
         // Connect to the database.
         $fresMySQLConnection = $this->connect();
-        $username = $this->_phpBBUserName; // Override
 
         // If not an array make this an array.
         if (!is_array($this->_WikiGroupName)) {
@@ -781,27 +647,6 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
 
 
     /**
-     * Modify options in the login template.
-     *
-     * NOTE: Turned off some Template stuff here. Anyone who knows where
-     * to find all the template options please let me know. I was only able
-     * to find a few.
-     *
-     * @param UserLoginTemplate $template
-     * @param $type String:  'signup' or 'login' (added in 1.16).
-     * @access public
-     */
-    public function modifyUITemplate(&$template, &$type)
-    {
-        if ($type == 'login') {
-            $template->set('usedomain', false); // We do not want a domain name.
-            $template->set('create', false); // Remove option to create new accounts from the wiki.
-            $template->set('useemail', false); // Disable the mail new password box.
-        }
-    }
-
-
-    /**
      * This prints an error when a MySQL error is found.
      *
      * @param string $message
@@ -814,232 +659,18 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
 
 
     /**
-     * This is the hook that runs when a user logs in. This is where the
-     * code to auto log-in a user to phpBB should go.
-     *
-     * Note: Right now it does nothing,
-     *
-     * @param object $user
-     * @return bool
-     */
-    public function onUserLoginComplete(&$user)
-    {
-        // @ToDo: Add code here to auto log into the forum.
-        return true;
-    }
-
-
-    /**
-     * Here we add some text to the login screen telling the user
-     * they need a phpBB account to login to the wiki.
-     *
-     * Note: This is a hook.
-     *
-     * @param object $template
-     * @return bool
-     */
-    public function onUserLoginForm(&$template)
-    {
-        $template->data['link'] = $this->_LoginMessage;
-
-        // If there is an error message display it.
-        if ($this->_loginErrorMessage) {
-            $template->data['message'] = $this->_loginErrorMessage;
-            $template->data['messagetype'] = 'error';
-        }
-        return true;
-    }
-
-
-    /**
-     * This is the Hook that gets called when a user logs out.
-     *
-     * @param object $user
-     */
-    public function onUserLogout(&$user)
-    {
-        // User logs out of the wiki we want to log them out of the form too.
-        if (!isset($this->_SessionTB)) {
-            return true; // If the value is not set just return true and move on.
-        }
-        return true;
-        // @todo: Add code here to delete the session.
-    }
-
-
-    /**
-     * Set the domain this plugin is supposed to use when authenticating.
-     *
-     * NOTE: We do not use this.
-     *
-     * @param string $domain
-     * @access public
-     */
-    public function setDomain($domain)
-    {
-        $this->domain = $domain;
-    }
-
-
-    /**
-     * Set the given password in the authentication database.
-     * As a special case, the password may be set to null to request
-     * locking the password to an unusable value, with the expectation
-     * that it will be set later through a mail reset or other method.
-     *
-     * Return true if successful.
-     *
-     * NOTE: We only allow the user to change their password via phpBB.
-     *
-     * @param $user User object.
-     * @param $password String: password.
-     * @return bool
-     * @access public
-     */
-    public function setPassword($user, $password)
-    {
-        return true;
-    }
-
-
-    /**
-     * Return true to prevent logins that don't authenticate here from being
-     * checked against the local database's password fields.
-     *
-     * This is just a question, and shouldn't perform any actions.
-     *
-     * Note: This forces a user to pass Authentication with the above
-     *       function authenticate(). So if a user changes their PHPBB
-     *       password, their old one will not work to log into the wiki.
-     *       Wiki does not have a way to update it's password when PHPBB
-     *       does. This however does not matter.
-     *
-     * @return bool
-     * @access public
-     */
-    public function strict()
-    {
-        return true;
-    }
-
-
-    /**
-     * Update user information in the external authentication database.
-     * Return true if successful.
-     *
-     * @param $user User object.
-     * @return bool
-     * @access public
-     */
-    public function updateExternalDB($user)
-    {
-        return true;
-    }
-
-
-    /**
-     * When a user logs in, optionally fill in preferences and such.
-     * For instance, you might pull the email address or real name from the
-     * external user database.
-     *
-     * The User object is passed by reference so it can be modified; don't
-     * forget the & on your function declaration.
-     *
-     * NOTE: Not useing right now.
-     *
-     * @param User $user
-     * @access public
-     * @return bool
-     */
-    public function updateUser(&$user)
-    {
-        return true;
-    }
-
-
-    /**
-     * Check whether there exists a user account with the given name.
-     * The name will be normalized to MediaWiki's requirements, so
-     * you might need to munge it (for instance, for lowercase initial
-     * letters).
-     *
-     * NOTE: MediaWiki checks its database for the username. If it has
-     *       no record of the username it then asks. "Is this really a
-     *       valid username?" If not then MediaWiki fails Authentication.
-     *
-     * @param string $username
-     * @return bool
-     * @access public
-     */
-    public function userExists($username)
-    {
-
-        // Connect to the database.
-        $fresMySQLConnection = $this->connect();
-
-        // If debug is on print the username entered by the user and the one from the datebase to the screen.
-        if ($this->_debug) {
-            print $username . ' : ' . $this->utf8($username); // Debug
-        }
-
-        $username = $this->_phpBBUserName; // Override
-
-        // Check Database for username.
-        $fstrMySQLQuery = sprintf("SELECT `username_clean`
-                FROM `%s`
-                WHERE `username_clean` = ?
-                LIMIT 1", $this->_UserTB);
-
-        // Query Database.
-        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
-        $fresStatement->bind_param('s', $username);
-        $fresStatement->execute();
-
-        // Bind result
-        $fresStatement->bind_result($resultUsernameClean);
-
-        while ($fresStatement->fetch()) {
-
-            // If debug is on print the username entered by the user and the one from the datebase to the screen.
-            if ($this->_debug) {
-                print $username . ' : ' . $resultUsernameClean; // Debug
-            }
-
-            // Double check match.
-            if ($username == $resultUsernameClean) {
-                return true; // Pass
-            }
-        }
-        return false; // Fail
-    }
-
-
-    /**
      * Cleans a username using PHPBB functions
      *
      * @param string $username
      * @return string
      */
-    private function utf8($username)
+    private function phpbb_clean_username($username)
     {
         $this->loadPHPFiles('UTF8'); // Load files needed to clean username.
         error_reporting(E_ALL ^ E_NOTICE ^ E_STRICT); // remove notices because phpBB does not use include once, strict to address PHP 5.4 issue.
         $username = utf8_clean_string($username);
         error_reporting(E_ALL);
         return $username;
-    }
-
-
-    /**
-     * Check to see if the specific domain is a valid domain.
-     *
-     * @param string $domain
-     * @return bool
-     * @access public
-     */
-    public function validDomain($domain)
-    {
-        return true;
     }
 
     /**
@@ -1067,5 +698,21 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
 
         $passwords_manager = new \phpbb\passwords\manager($config, $passwords_drivers, $passwords_helper, array_keys($passwords_drivers));
         return $passwords_manager;
+    }
+
+    /**
+     * Provide a getter for the AuthManager to abstract out version checking.
+     * Copied from LDAPAuthentication2 extension
+     *
+     * @return AuthManager
+     */
+    protected function getAuthManager() {
+        if ( method_exists( MediaWikiServices::class, 'getAuthManager' ) ) {
+            // MediaWiki 1.35+
+            $authManager = MediaWikiServices::getInstance()->getAuthManager();
+        } else {
+            $authManager = AuthManager::singleton();
+        }
+        return $authManager;
     }
 }
