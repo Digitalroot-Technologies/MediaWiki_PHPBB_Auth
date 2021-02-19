@@ -34,22 +34,6 @@
  *
  */
 
-// First check if class and interface has already been defined.
-if (!class_exists('AuthPlugin') || !interface_exists('iAuthPlugin')) {
-    /**
-     * Auth Plug-in
-     *
-     */
-    require_once './includes/AuthPlugin.php';
-
-    /**
-     * Auth Plug-in Interface
-     *
-     */
-    require_once './extensions/Auth_phpBB/iAuthPlugin.php';
-
-}
-
 /**
  * Handles the Authentication with the PHPBB database.
  *
@@ -266,6 +250,13 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
     private $_phpBBUserName;
 
     /**
+     * Class member used to store login error message for login form hook
+     *
+     * @var string
+     */
+    private $_loginErrorMessage = '';
+
+    /**
      * Constructor
      *
      * @param array $aConfig
@@ -318,19 +309,6 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
         } else {
             $this->_MySQL_Port = '';
         }
-
-        // Set some MediaWiki Values
-        // This requires a user be logged into the wiki to make changes.
-        $GLOBALS['wgGroupPermissions']['*']['edit'] = false;
-
-        // Specify who may create new accounts:
-        $GLOBALS['wgGroupPermissions']['*']['createaccount'] = false;
-        $GLOBALS['wgGroupPermissions']['*']['autocreateaccount'] = true;
-
-        // Load Hooks
-        $GLOBALS['wgHooks']['UserLoginForm'][] = array($this, 'onUserLoginForm', false);
-        $GLOBALS['wgHooks']['UserLoginComplete'][] = $this;
-        $GLOBALS['wgHooks']['UserLogout'][] = $this;
     }
 
 
@@ -723,7 +701,7 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
             }
         }
         // Hook error message.
-        $GLOBALS['wgHooks']['UserLoginForm'][] = array($this, 'onUserLoginForm', $this->_NoWikiError);
+        $this->_loginErrorMessage = $this->_NoWikiError;
         return false; // User is not in Wiki group.
     }
 
@@ -852,17 +830,16 @@ class Auth_phpBB extends AuthPlugin implements iAuthPlugin
      *
      * Note: This is a hook.
      *
-     * @param string $errorMessage
      * @param object $template
      * @return bool
      */
-    public function onUserLoginForm($errorMessage = false, $template)
+    public function onUserLoginForm(&$template)
     {
         $template->data['link'] = $this->_LoginMessage;
 
         // If there is an error message display it.
-        if ($errorMessage) {
-            $template->data['message'] = $errorMessage;
+        if ($this->_loginErrorMessage) {
+            $template->data['message'] = $this->_loginErrorMessage;
             $template->data['messagetype'] = 'error';
         }
         return true;
