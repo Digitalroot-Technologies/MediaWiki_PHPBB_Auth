@@ -13,48 +13,12 @@ REQUIREMENTS
 * MediaWiki 1.31 LTS (tested with 1.31 where it's deprecated, but 1.33 removes auth plugins?)
 * phpBB 3.3
 
-INSTALL:
+INSTALL
 =================
-
-Create a group in phpBB for your wiki users. I named mine "Wiki".   
-You will need to put the name you choose in the code below.   
-
-**PHPBB GROUP NOTE**: In order for a user to be able to use the wiki they will need to  
-be a member of the group you made in the step above.
 
 Extract the package contents into an `/extensions/Auth_phpBB` directory.
 
-### OPTIONAL PHPBB-TO-MEDIAWIKI USERNAME TRANSLATION FEATURE:  
-phpBB usernames can be translated to more restrictive wiki usernames.  
-Use phpBB ACP, Users and Groups, Custom profile fields.  
-Create a "Single text field" custom profile field.  
-
-**Suggested settings:**  
-* Name it "wikiusername"  
-* Set "Publicly display profile field" = no  
-* Uncheck all visibility options, except check "Hide profile field"   
-* Set "Field name/title presented to the user" = "Wiki Username"  
-* Set "Field description" = "Forum username translated for wiki username restrictions"  
-* Set "Length of input box" = 20  
-* Set "Maximum number of characters" = 255  
-* Set "Field validation" to "Any character"  
-* Set Language definitions fields to same as field name/title/description above.  
-
-**PROFILE NOTE:**  
-The custom profile field must be hidden to all but the admins  
-because users could otherwise hijack wiki accounts by entering any  
-username they wish.  
-
-**PROFILE NOTE:**  
-Enter a valid MediaWiki username into this field in the user's  
-profile only when the phpBB username conflicts with MediaWiki username restrictions.  
-For example, enter "Under Score" for a user with the name "Under_Score" because  
-underscores are not allowed in MediaWiki usernames.  All users with phpBB usernames  
-which are also valid MediaWiki usernames do not need this field set.  
-
-### Code
-
-Open LocalSettings.php. Put this at the bottom of the file. Edit as needed.  
+Open `LocalSettings.php`. Put this at the bottom of the file. Edit as needed.
 
     /*-----------------[ Everything below this line. ]-----------------*/
     
@@ -72,7 +36,7 @@ Open LocalSettings.php. Put this at the bottom of the file. Edit as needed.
                                                     // was false will cause users with uppercase characters
                                                     // to appear as separate users from their previous
                                                     // all-lowercase account.
-        
+     
     $wgAuth_Config['WikiGroupName'] = 'Wiki';       // Name of your phpBB group
                                                     // users need to be a member
                                                     // of to use the wiki. (i.e. wiki)
@@ -86,7 +50,7 @@ Open LocalSettings.php. Put this at the bottom of the file. Edit as needed.
                                                     // )
     
     
-    $wgAuth_Config['UseWikiGroup'] = true;          // This tells the Plugin to require
+    $wgAuth_Config['UseWikiGroup'] = false;         // This tells the Plugin to require
                                                     // a user to be a member of the above
                                                     // phpBB group. (ie. wiki) Setting
                                                     // this to false will let any phpBB
@@ -111,7 +75,7 @@ Open LocalSettings.php. Put this at the bottom of the file. Edit as needed.
     $wgAuth_Config['UseWikiProfile']   = false;   // Whether the extension checks for a custom username profile
                                                   // field in phpBB when the phpBB username is incompatible with
                                                   // MediaWiki username restrictions.
-
+    
     $wgAuth_Config['ProfileDataTB']    = 'phpbb3_profile_fields_data';  // Name of your phpBB profile data table. (e.g. phpbb_profile_fields_data)
     
     $wgAuth_Config['ProfileFieldName'] = 'pf_wikiusername';             // Name of your phpBB custom profile field
@@ -124,3 +88,43 @@ Open LocalSettings.php. Put this at the bottom of the file. Edit as needed.
     $wgAuth_Config['NoWikiError']    = 'You must be a member of the required forum group.'; // Localize this message.
     
     wfLoadExtension( 'Auth_phpBB' );
+
+
+Optional Features
+-----------------
+
+### Require phpBB group membership
+
+To restrict wiki login to certain phpBB users, create a group in phpBB --
+I named mine "Wiki". Then update the following two configuration settings:
+
+    $wgAuth_Config['WikiGroupName'] = 'Wiki';       // Name of your phpBB group
+    $wgAuth_Config['UseWikiGroup'] = false;         // Require group membership to login
+
+### phpBB-to-MediaWiki username translation
+
+phpBB usernames can be translated to more restrictive wiki usernames.
+Use phpBB ACP, Users and Groups, Custom profile fields.
+Create a "Single text field" custom profile field.
+
+**Suggested settings:**
+* Name it "wikiusername"
+* Set "Publicly display profile field" = no
+* Uncheck all visibility options, except check "Hide profile field"
+* Set "Field name/title presented to the user" = "Wiki Username"
+* Set "Field description" = "Forum username translated for wiki username restrictions"
+* Set "Length of input box" = 20
+* Set "Maximum number of characters" = 255
+* Set "Field validation" to "Any character"
+* Set Language definitions fields to same as field name/title/description above.
+
+The custom profile field must be hidden to all but the admins
+because users could otherwise hijack wiki accounts by entering any
+username they wish.
+
+Enter a valid MediaWiki username into this field in the user's
+profile only when the phpBB username conflicts with MediaWiki username restrictions.
+For example, enter "Under Score" for a user with the name "Under_Score" because
+underscores are not allowed in MediaWiki usernames.  All users with phpBB usernames
+which are also valid MediaWiki usernames do not need this field set.
+
