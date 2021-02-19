@@ -27,7 +27,11 @@
  * @package MediaWiki
  * @subpackage Auth_phpBB
  * @author Nicholas Dunnaway
- * @copyright 2004-2016 Digitalroot Technologies
+ * @author Steve Gilvarry
+ * @author Jonathan W. Platt
+ * @author C4K3
+ * @author Joel Haasnoot
+ * @copyright 2004-2021 Digitalroot Technologies
  * @license http://www.gnu.org/copyleft/gpl.html
  * @link https://github.com/Digitalroot/MediaWiki_PHPBB_Auth
  * @link http://digitalroot.net/
