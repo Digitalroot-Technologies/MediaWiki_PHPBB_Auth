@@ -22,8 +22,7 @@ You will need to put the name you choose in the code below.
 **PHPBB GROUP NOTE**: In order for a user to be able to use the wiki they will need to  
 be a member of the group you made in the step above.
 
-* Put Auth_phpBB.php in /extensions/Auth_phpBB  
-* Put iAuthPlugin.php in /extensions/Auth_phpBB  
+Extract the package contents into an `/extensions/Auth_phpBB` directory.
 
 ### OPTIONAL PHPBB-TO-MEDIAWIKI USERNAME TRANSLATION FEATURE:  
 phpBB usernames can be translated to more restrictive wiki usernames.  
@@ -60,7 +59,6 @@ Open LocalSettings.php. Put this at the bottom of the file. Edit as needed.
     /*-----------------[ Everything below this line. ]-----------------*/
     
     // phpBB User Database Plugin. (Requires MySQL Database)
-    require_once "$IP/extensions/Auth_phpBB/Auth_phpBB.php";
     
     $wgAuth_Config = array(); // Clean.
     
@@ -125,4 +123,4 @@ Open LocalSettings.php. Put this at the bottom of the file. Edit as needed.
                                        'ucp.php?mode=register">Click here to create an account.</a>'; // Localize this message.
     $wgAuth_Config['NoWikiError']    = 'You must be a member of the required forum group.'; // Localize this message.
     
-    $wgAuth = new Auth_phpBB($wgAuth_Config);     // Auth_phpBB Plugin.
+    wfLoadExtension( 'Auth_phpBB' );

@@ -1,0 +1,21 @@
+{
+	"name": "Auth_phpBB",
+	"author": "Nicholas Dunnaway",
+	"url": "https://github.com/Digitalroot/MediaWiki_PHPBB_Auth",
+	"description": "Authenticate against a phpBB user database.",
+	"version": "3.5.0",
+	"license-name": "GPL-2.0-or-later",
+	"type": "validextensionclass",
+	"manifest_version": 1,
+	"callback": "Auth_phpBBHooks::onRegistration",
+	"AutoloadClasses": {
+		"Auth_phpBB": "includes/Auth_phpBB.php",
+		"Auth_phpBBHooks": "includes/Auth_phpBBHooks.php",
+		"iAuthPlugin": "includes/iAuthPlugin.php"
+	},
+	"Hooks": {
+		"UserLoginForm": "Auth_phpBBHooks::onUserLoginForm",
+		"UserLogoutComplete": "Auth_phpBBHooks::onUserLoginComplete",
+		"UserLogout": "Auth_phpBBHooks::onUserLogout"
+	}
+}
