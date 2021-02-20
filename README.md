@@ -8,13 +8,16 @@ MediaWiki Page: http://www.mediawiki.org/wiki/Extension:PHPBB/Users_Integration
 REQUIREMENTS
 =================
 
-* PHP7.3
-* MySQL 5
-* MediaWiki 1.31 LTS (tested with 1.31 where it's deprecated, but 1.33 removes auth plugins?)
+* PHP 7.3 or later
+* MySQL 5 or later
+* MediaWiki 1.31 LTS or later (tested on 1.31 and 1.35)
 * phpBB 3.3
+* [PluggableAuth](https://www.mediawiki.org/wiki/Extension:PluggableAuth) MediaWiki extension
 
 INSTALL
 =================
+
+Install the PluggableAuth MediaWiki extension.
 
 Extract the package contents into an `/extensions/Auth_phpBB` directory.
 
@@ -87,6 +90,7 @@ Open `LocalSettings.php`. Put this at the bottom of the file. Edit as needed.
                                        'ucp.php?mode=register">Click here to create an account.</a>'; // Localize this message.
     $wgAuth_Config['NoWikiError']    = 'You must be a member of the required forum group.'; // Localize this message.
     
+    wfLoadExtension( 'PluggableAuth' );
     wfLoadExtension( 'Auth_phpBB' );
 
 
