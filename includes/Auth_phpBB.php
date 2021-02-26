@@ -667,9 +667,9 @@ class Auth_phpBB extends PluggableAuth {
     private function phpbb_clean_username($username)
     {
         $this->loadPHPFiles('UTF8'); // Load files needed to clean username.
-        error_reporting(E_ALL ^ E_NOTICE ^ E_STRICT); // remove notices because phpBB does not use include once, strict to address PHP 5.4 issue.
+        $saved_level = error_reporting(E_ALL ^ E_NOTICE ^ E_STRICT); // remove notices because phpBB does not use include once, strict to address PHP 5.4 issue.
         $username = utf8_clean_string($username);
-        error_reporting(E_ALL);
+        error_reporting($saved_level);
         return $username;
     }
 
