@@ -218,11 +218,11 @@ class Auth_phpBB extends PluggableAuth {
     private $_ProfileFieldName;
 
     /**
-     * Class member used to store login error message for login form hook
+     * Class member used to cache wikified phpBB username
      *
      * @var string
      */
-    private $_loginErrorMessage = '';
+    private $_wikiPhpBBUserName = null;
 
     /**
      * Initialize object configuration
@@ -315,43 +315,71 @@ class Auth_phpBB extends PluggableAuth {
         $username = $extraLoginFields[ExtraLoginFields::USERNAME];
         $password = $extraLoginFields[ExtraLoginFields::PASSWORD];
 
-        $phpBBUserName = $this->phpbb_clean_username($username);
+        // Get the phpBB user_id of the username passed to us.
+        // Check whether to use a phpBB custom profile field
+        if ($this->_UseWikiProfile === true) {
+            // For security reasons, first check the phpBB username before
+            // falling back to the WikiProfile.
+            $phpBBUserID = $this->lookupPhpBBUser($username) ?? $this->lookupWikiProfile($username);
+
+            if ($phpBBUserID) {
+                // Regardless of how we found them, if a WikiProfile entry was
+                // found, prefer that value over the phpBB username
+                $wikiUsername = $this->getWikiProfileName($phpBBUserID) ?? $this->_wikiPhpBBUserName;
+            }
+        } else {
+            $phpBBUserID = $this->lookupPhpBBUser($username);
+            $wikiUsername = $this->_wikiPhpBBUserName;
+        }
+
+        if ($phpBBUserID === null) {
+            // no such user found
+            if ($this->_LoginMessage) {
+                $errorMessage = $this->_LoginMessage;
+            }
+            return false;
+        }
 
         // Connect to the database.
         $fresMySQLConnection = $this->connect();
 
-        // Check Database for username and password.
-        $fstrMySQLQuery = sprintf("SELECT `user_id`, `username_clean`, `user_password`, `user_email`
+        // Load the password and email for the phpBB user_id
+        $fstrMySQLQuery = sprintf("SELECT `user_password`, `user_email`
                 FROM `%s`
-                WHERE `username_clean` = ? AND `user_type` != 1
+                WHERE `user_id` = ? AND `user_type` != 1
                 LIMIT 1", $this->_UserTB);
 
         // Query Database.
         $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
-        $fresStatement->bind_param('s', $phpBBUserName);
+        $fresStatement->bind_param('i', $phpBBUserID);
         $fresStatement->execute();
 
         // Bind results
-        $fresStatement->bind_result($resultUserID, $resultUsernameClean, $resultUserPassword, $resultUserEmail);
+        $fresStatement->bind_result($resultUserPassword, $resultUserEmail);
 
-        while ($fresStatement->fetch()) {
+        if ($fresStatement->fetch()) {
             $this->loadPHPFiles('Password');
 
             $passwords_manager = $this->buildPhpBBPasswordmanager();
 
             /**
-             * Check if password submited matches the PHPBB password.
+             * Check if password submitted matches the PHPBB password.
              * Also check if user is a member of the phpbb group 'wiki'.
              */
-            if ($passwords_manager->check($password, $resultUserPassword) && $this->isMemberOfWikiGroup($phpBBUserName)) {
-                $username = $this->getCanonicalName($phpBBUserName);
-                $realname = 'I need to Update My Profile';
-                $email = $resultUserEmail;
-                $id = $resultUserID;
-                return true;
+            if ($passwords_manager->check($password, $resultUserPassword)) {
+                if ($this->isMemberOfWikiGroup($phpBBUserID)) {
+                    $username = $wikiUsername;
+                    $realname = 'I need to Update My Profile';
+                    $email = $resultUserEmail;
+                    $id = $phpBBUserID;
+                    return true;
+                }
             }
         }
-        $errorMessage = $this->_LoginMessage;
+
+        if ($this->_LoginMessage) {
+            $errorMessage = $this->_LoginMessage;
+        }
         return false;
     }
 
@@ -427,20 +455,22 @@ class Auth_phpBB extends PluggableAuth {
 
 
     /**
-     * Return a MediaWiki username from a phpBB username
+     * Look up and return a phpBB user_id via the phpBB username.
+     * If found, $this->_wikiPhpBBUserName is set to the wikified username.
      *
      * @param string $username phpBB username
-     * @return string
+     * @access private
+     * @return string | null
      */
-    public function getCanonicalName($username)
+    private function lookupPhpBBUser($username)
     {
         // Connect to the database.
         $fresMySQLConnection = $this->connect();
 
         $phpBBUserName = $this->phpbb_clean_username($username);
 
-        // Check Database for username. We will return the correct casing of the name.
-        $fstrMySQLQuery = sprintf("SELECT `%s`
+        // Check Database for username.
+        $fstrMySQLQuery = sprintf("SELECT `user_id`, `%s`
                 FROM `%s`
                 WHERE `username_clean` = ?
                 LIMIT 1", ($this->_UseCanonicalCase ? "username" : "username_clean"), $this->_UserTB);
@@ -451,57 +481,119 @@ class Auth_phpBB extends PluggableAuth {
         $fresStatement->execute();
 
         // Bind result
-        $fresStatement->bind_result($resultWikiUsername);
+        $fresStatement->bind_result($resultUserID, $resultWikiUsername);
 
-        while ($fresStatement->fetch()) {
-            return ucfirst($resultWikiUsername); // Preserve capped phpBB username when wikified version is valid
+        if ($fresStatement->fetch()) {
+            // Preserve capped phpBB username when wikified version is valid
+            $this->_wikiPhpBBUserName = ucfirst($resultWikiUsername);
+            return $resultUserID;
         }
 
-        // If here, username is invalid or is incompatible with wiki username.
-        // Maybe check phpBB custom profile for translated username.
+        // No user with that username was found, return null.
+        return null;
+    }
 
-        // Check whether to use a phpBB custom profile field for a valid wiki username
-        if (isset($this->_UseWikiProfile) && $this->_UseWikiProfile === false) {
-            return $username; // Just return invalid username
-        }
 
-        // Check Database for wikiusername. We will return the wikified version of username.
-        $fstrMySQLQuery = sprintf("SELECT `%3\$s`
-                FROM `%2\$s`, `%1\$s`
-                WHERE lcase(`%3\$s`) = lcase(?)
-                AND `%2\$s`.`user_id` = `%1\$s`.`user_id`
-                LIMIT 1",
-            $this->_UserTB,
+    /**
+     * Look up and return a phpBB user_id via the custom WikiProfile field.
+     *
+     * @param string $username WikiProfile username
+     * @access private
+     * @return string | null
+     */
+    private function lookupWikiProfile($username)
+    {
+        // Connect to the database.
+        $fresMySQLConnection = $this->connect();
+
+        // Check Database for WikiProfile username.
+        $fstrMySQLQuery = sprintf("SELECT `user_id`
+                FROM `%1\$s`
+                WHERE lcase(`%2\$s`) = lcase(?)",
             $this->_ProfileDataTB,
             $this->_ProfileFieldName);
 
         // Query Database.
         $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
-        $fresStatement->bind_param('s', $wikiUsername);
+        $fresStatement->bind_param('s', $username);
+        $fresStatement->execute();
+
+        // Bind result
+        $fresStatement->bind_result($resultUserID);
+
+        $user_ids = [];
+        while ($fresStatement->fetch()) {
+            $user_ids[] = $resultUserID;
+        }
+
+        if (count($user_ids) == 1) {
+            return $user_ids[0];
+        } elseif (count($user_ids) == 0) {
+            // No user with that username was found, return null.
+            return null;
+        } else {
+            // If more than one entry was found we don't know which user we
+            // should authenticate against so fail. We log an error here to
+            // the php_error log but we don't pass this up to the user to
+            // prevent leaking information.
+            error_log("Auth_phpBB: ERROR: duplicate WikiProfile found with value '$username'");
+            return null;
+        }
+
+    }
+
+
+    /**
+     * Look up and return the custom WikiProfile field given a phpBB user_id.
+     *
+     * @param string $username user_id
+     * @access private
+     * @return string | null
+     */
+    private function getWikiProfileName($user_id)
+    {
+        // Connect to the database.
+        $fresMySQLConnection = $this->connect();
+
+        // Load WikiProfile username from the database
+        $fstrMySQLQuery = sprintf("SELECT `%2\$s`
+                FROM `%1\$s`
+                WHERE `user_id` = ?
+                LIMIT 1",
+            $this->_ProfileDataTB,
+            $this->_ProfileFieldName);
+
+        // Query Database.
+        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
+        $fresStatement->bind_param('i', $user_id);
         $fresStatement->execute();
 
         // Bind result
         $fresStatement->bind_result($resultWikiUsername);
 
         while ($fresStatement->fetch()) {
-            return ucfirst($resultWikiUsername);
+            // if the field is blank, return null
+            if ($resultWikiUsername) {
+                return ucfirst($resultWikiUsername);
+            } else {
+                return null;
+            }
         }
 
-        // At this point the username is invalid and should return just as it was passed.        
-        return $username;
+        // No user with that user_id was found, return null.
+        return null;
     }
 
 
     /**
      * Checks if the user is a member of the PHPBB group called wiki.
      *
-     * @param string $username
-     * @access public
+     * @param int $user_id
+     * @access private
      * @return bool
-     * @todo Remove 2nd connection to database. For function isMemberOfWikiGroup()
      *
      */
-    private function isMemberOfWikiGroup($username)
+    private function isMemberOfWikiGroup($user_id)
     {
         // In LocalSettings.php you can control if being a member of a wiki
         // is required or not.
@@ -526,24 +618,12 @@ class Auth_phpBB extends PluggableAuth {
              *  Last it returns TRUE or FALSE on if the user is in the wiki group.
              */
 
-            // Get UserId
-            $fstrMySQLQuery = sprintf("SELECT `user_id` FROM `%s`
-                    WHERE `username_clean` = ?",
-                $this->_UserTB);
-            $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
-            $fresStatement->bind_param('s', $username); // bind_param escapes the string
-            $fresStatement->execute();
-            $fresStatement->bind_result($resultUserID);
-            $user_id = -1;
-            while ($fresStatement->fetch()) {
-                $user_id = $resultUserID;
-            }
-
             // Get WikiId
             $fstrMySQLQuery = sprintf('SELECT `group_id` FROM `%s`
-                    WHERE `group_name` = \'%s\'',
-                $this->_GroupsTB, $WikiGrpName);
+                    WHERE `group_name` = ?',
+                $this->_GroupsTB);
             $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
+            $fresStatement->bind_param('s', $WikiGrpName); // bind_param escapes the string
             $fresStatement->execute();
             $fresStatement->bind_result($resultGroupID);
 
@@ -572,7 +652,7 @@ class Auth_phpBB extends PluggableAuth {
             }
         }
         // Hook error message.
-        $this->_loginErrorMessage = $this->_NoWikiError;
+        $this->_LoginMessage = $this->_NoWikiError;
         return false; // User is not in Wiki group.
     }
 
