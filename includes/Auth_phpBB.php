@@ -52,53 +52,53 @@ use MediaWiki\MediaWikiServices;
 class Auth_phpBB extends PluggableAuth {
 
     /**
-     * Name of your PHPBB groups table. (i.e. phpbb_groups)
+     * Name of your PHPBB groups table.
      *
      * @var string
      */
-    private $_GroupsTB;
+    private $_GroupsTB = 'phpbb3_groups';
 
     /**
      * Message user sees when logging in.
      *
      * @var string
      */
-    private $_LoginMessage;
+    private $_LoginMessage = 'Please register on the forums to login.';
 
     /**
      * phpBB MySQL Database Name.
      *
      * @var string
      */
-    private $_MySQL_Database;
+    private $_MySQL_Database = '';
 
     /**
      * phpBB MySQL Host Name.
      *
      * @var string
      */
-    private $_MySQL_Host;
+    private $_MySQL_Host = 'localhost';
 
     /**
      * phpBB MySQL Port Number.
      *
      * @var string
      */
-    private $_MySQL_Port;
+    private $_MySQL_Port = '';
 
     /**
      * phpBB MySQL Password.
      *
      * @var string
      */
-    private $_MySQL_Password;
+    private $_MySQL_Password = '';
 
     /**
      * phpBB MySQL Username.
      *
      * @var string
      */
-    private $_MySQL_Username;
+    private $_MySQL_Username = '';
 
     /**
      * Version of MySQL Database.
@@ -112,21 +112,14 @@ class Auth_phpBB extends PluggableAuth {
      *
      * @var string
      */
-    private $_NoWikiError;
+    private $_NoWikiError = 'You must be a member of the required forum group.';
 
     /**
      * Path to the phpBB install.
      *
      * @var string
      */
-    private $_PathToPHPBB;
-
-    /**
-     * Name of the phpBB session table for single session sign-on.
-     *
-     * @var string
-     */
-    private $_SessionTB;
+    private $_PathToPHPBB = '../phpbb3/';
 
     /**
      * This tells the plugin that the phpBB tables
@@ -135,21 +128,21 @@ class Auth_phpBB extends PluggableAuth {
      *
      * @var bool
      */
-    private $_UseExtDatabase;
+    private $_UseExtDatabase = false;
 
     /**
-     * Name of your PHPBB groups table. (i.e. phpbb_groups)
+     * Name of your PHPBB user groups table.
      *
      * @var string
      */
-    private $_User_GroupTB;
+    private $_User_GroupTB = 'phpbb3_user_group';
 
     /**
-     * Name of your PHPBB user table. (i.e. phpbb_users)
+     * Name of your PHPBB user table.
      *
      * @var string
      */
-    private $_UserTB;
+    private $_UserTB = 'phpbb3_users';
 
     /**
      * This tells the Plugin to require
@@ -160,7 +153,7 @@ class Auth_phpBB extends PluggableAuth {
      *
      * @var bool
      */
-    private $_UseWikiGroup;
+    private $_UseWikiGroup = false;
 
     /**
      * Name of your PHPBB group
@@ -169,7 +162,7 @@ class Auth_phpBB extends PluggableAuth {
      *
      * @var mixed
      */
-    private $_WikiGroupName;
+    private $_WikiGroupName = ["Wiki"];
 
     /**
      * Whether to set usernames from the
@@ -181,7 +174,7 @@ class Auth_phpBB extends PluggableAuth {
      *
      * @var bool
      */
-    private $_UseCanonicalCase;
+    private $_UseCanonicalCase = false;
 
     /**
      *
@@ -199,14 +192,14 @@ class Auth_phpBB extends PluggableAuth {
      *
      * @var bool
      */
-    private $_UseWikiProfile;
+    private $_UseWikiProfile = false;
 
     /**
      * Name of your PHPBB profile data table
      *
      * @var string
      */
-    private $_ProfileDataTB;
+    private $_ProfileDataTB = 'phpbb3_profile_fields_data';
 
     /**
      * Name of profile field in the
@@ -215,7 +208,7 @@ class Auth_phpBB extends PluggableAuth {
      *
      * @var string
      */
-    private $_ProfileFieldName;
+    private $_ProfileFieldName = 'pf_wikiusername';
 
     /**
      * Class member used to cache wikified phpBB username
@@ -235,47 +228,34 @@ class Auth_phpBB extends PluggableAuth {
         // Set some values phpBB needs.
         define('IN_PHPBB', true); // We are secure.
 
-        // Read config
-        $this->_GroupsTB = $aConfig['GroupsTB'];
-        $this->_NoWikiError = $aConfig['NoWikiError'];
-        $this->_PathToPHPBB = $aConfig['PathToPHPBB'];
-        $this->_SessionTB = @$aConfig['SessionTB'];
-        $this->_UseExtDatabase = $aConfig['UseExtDatabase'];
-        $this->_User_GroupTB = $aConfig['User_GroupTB'];
-        $this->_UserTB = $aConfig['UserTB'];
-        $this->_UseWikiGroup = $aConfig['UseWikiGroup'];
-        $this->_WikiGroupName = $aConfig['WikiGroupName'];
-        $this->_LoginMessage = $aConfig['LoginMessage'];
+        // Configuration fields
+        $config_values = [
+            'PathToPHPBB',
+            'UserTB',
+            'GroupsTB',
+            'User_GroupTB',
+            'UseCanonicalCase',
+            'UseWikiGroup',
+            'WikiGroupName',
+            'UseExtDatabase',
+            'MySQL_Host',
+            'MySQL_Port',
+            'MySQL_Database',
+            'MySQL_Username',
+            'MySQL_Password',
+            'UseWikiProfile',
+            'ProfileDataTB',
+            'ProfileFieldName',
+            'LoginMessage',
+            'NoWikiError',
+        ];
 
-        // If undefined (i.e. user is using an old config) set to false
-        if (isset($aConfig['UseCanonicalCase'])) {
-            $this->_UseCanonicalCase = $aConfig['UseCanonicalCase'];
-        } else {
-            $this->_UseCanonicalCase = false;
-        }
-
-        // If undefined (i.e. user is using an old config) set to false
-        if (isset($aConfig['UseWikiProfile'])) {
-            $this->_UseWikiProfile = $aConfig['UseWikiProfile']; // Allow phpBB-to-wiki username translation
-            $this->_ProfileDataTB = $aConfig['ProfileDataTB']; // phpBB profile field data table
-            $this->_ProfileFieldName = $aConfig['ProfileFieldName']; // phpBB custom profile field name
-        } else {
-            $this->_UseWikiProfile = false;
-        }
-
-        // Only assign the database values if an external database is used.
-        if ($this->_UseExtDatabase == true) {
-            $this->_MySQL_Database = $aConfig['MySQL_Database'];
-            $this->_MySQL_Host = $aConfig['MySQL_Host'];
-            $this->_MySQL_Password = $aConfig['MySQL_Password'];
-            $this->_MySQL_Username = $aConfig['MySQL_Username'];
-        }
-
-        // If undefined (i.e. user is using an old config) set to empty
-        if (isset($aConfig['MySQL_Port'])) {
-            $this->_MySQL_Port = $aConfig['MySQL_Port']; // Facilitate easy port declaration
-        } else {
-            $this->_MySQL_Port = '';
+        // Override default configuration values with any defined in the config
+        foreach ($config_values as $value) {
+            if (isset($aConfig[$value])) {
+                $field="_$value";
+                $this->$field = $aConfig[$value];
+            }
         }
     }
 
@@ -617,7 +597,7 @@ class Auth_phpBB extends PluggableAuth {
     {
         // In LocalSettings.php you can control if being a member of a wiki
         // is required or not.
-        if (isset($this->_UseWikiGroup) && $this->_UseWikiGroup === false) {
+        if ($this->_UseWikiGroup === false) {
             return true;
         }
 
