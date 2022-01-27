@@ -318,6 +318,8 @@ class Auth_phpBB extends PluggableAuth {
         // Get the phpBB user_id of the username passed to us.
         // Check whether to use a phpBB custom profile field
         if ($this->_UseWikiProfile === true) {
+            $this->debug("authenticate: looking up phpBB account & WikiProfile for '$username'");
+
             // For security reasons, first check the phpBB username before
             // falling back to the WikiProfile.
             $phpBBUserID = $this->lookupPhpBBUser($username) ?? $this->lookupWikiProfile($username);
@@ -328,6 +330,7 @@ class Auth_phpBB extends PluggableAuth {
                 $wikiUsername = $this->getWikiProfileName($phpBBUserID) ?? $this->_wikiPhpBBUserName;
             }
         } else {
+            $this->debug("authenticate: looking up phpBB account for '$username'");
             $phpBBUserID = $this->lookupPhpBBUser($username);
             $wikiUsername = $this->_wikiPhpBBUserName;
         }
@@ -337,8 +340,11 @@ class Auth_phpBB extends PluggableAuth {
             if ($this->_LoginMessage) {
                 $errorMessage = $this->_LoginMessage;
             }
+            $this->debug("authenticate: no user record found for username '$username'");
             return false;
         }
+
+        $this->debug("authenticate: attempting login for '$username' as wiki user '$wikiUsername'");
 
         // Connect to the database.
         $fresMySQLConnection = $this->connect();
@@ -368,12 +374,17 @@ class Auth_phpBB extends PluggableAuth {
              */
             if ($passwords_manager->check($password, $resultUserPassword)) {
                 if ($this->isMemberOfWikiGroup($phpBBUserID)) {
+                    $this->debug("authenticate: user '$username' logged in as wiki user '$wikiUsername'");
                     $username = $wikiUsername;
                     $realname = 'I need to Update My Profile';
                     $email = $resultUserEmail;
                     $id = $phpBBUserID;
                     return true;
+                } else {
+                    $this->debug("authenticate: '$username' not a member of required group(s)");
                 }
+            } else {
+                $this->debug("authenticate: invalid password presented for '$username'");
             }
         }
 
@@ -486,7 +497,10 @@ class Auth_phpBB extends PluggableAuth {
         if ($fresStatement->fetch()) {
             // Preserve capped phpBB username when wikified version is valid
             $this->_wikiPhpBBUserName = ucfirst($resultWikiUsername);
+            $this->debug("lookupPhpBBUser: found phpBB user '$username' with user_id $resultUserID");
             return $resultUserID;
+        } else {
+            $this->debug("lookupPhpBBUser: no phpBB username matched '$username'");
         }
 
         // No user with that username was found, return null.
@@ -527,15 +541,18 @@ class Auth_phpBB extends PluggableAuth {
         }
 
         if (count($user_ids) == 1) {
+            $this->debug("lookupWikiProfile: found WikiProfile '$username' with user_id {$user_ids[0]}");
             return $user_ids[0];
         } elseif (count($user_ids) == 0) {
             // No user with that username was found, return null.
+            $this->debug("lookupPhpBBUser: no WikiProfile username matched '$username'");
             return null;
         } else {
             // If more than one entry was found we don't know which user we
             // should authenticate against so fail. We log an error here to
             // the php_error log but we don't pass this up to the user to
             // prevent leaking information.
+            $this->debug("lookupPhpBBUser: duplicate WikiProfile usernames found for '$username'");
             error_log("Auth_phpBB: ERROR: duplicate WikiProfile found with value '$username'");
             return null;
         }
@@ -574,13 +591,16 @@ class Auth_phpBB extends PluggableAuth {
         while ($fresStatement->fetch()) {
             // if the field is blank, return null
             if ($resultWikiUsername) {
-                return ucfirst($resultWikiUsername);
+                $wikiUsername = ucfirst($resultWikiUsername);
+                $this->debug("getWikiProfileName: user_id $user_id has a WikiProfile of '$wikiUsername'");
+                return $wikiUsername;
             } else {
                 return null;
             }
         }
 
         // No user with that user_id was found, return null.
+        $this->debug("getWikiProfileName: no WikiProfile found for user_id $user_id");
         return null;
     }
 
@@ -647,10 +667,14 @@ class Auth_phpBB extends PluggableAuth {
             // Check for a true or false response.
             while ($fresStatement->fetch()) {
                 if ($result == '1') {
+                    $this->debug("isMemberOfWikiGroup: user_id $user_id is a member of '$WikiGrpName'");
                     return true; // User is in Wiki group.
                 }
             }
         }
+
+        $this->debug("isMemberOfWikiGroup: user_id $user_id is not a member of " . json_encode($this->_WikiGroupName, true));
+
         // Hook error message.
         $this->_LoginMessage = $this->_NoWikiError;
         return false; // User is not in Wiki group.
@@ -723,6 +747,17 @@ class Auth_phpBB extends PluggableAuth {
             case 'phpBBLogin':
                 break;
         }
+    }
+
+    /**
+     * Access to the global logger.
+     *
+     * @param string $message
+     * @access private
+     */
+    private function debug($message)
+    {
+        wfDebugLog("Auth_phpBB", $message);
     }
 
 
