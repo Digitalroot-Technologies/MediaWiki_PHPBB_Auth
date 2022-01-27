@@ -105,30 +105,66 @@ I named mine "Wiki". Then update the following two configuration settings:
     $wgAuth_Config['WikiGroupName'] = 'Wiki';       // Name of your phpBB group
     $wgAuth_Config['UseWikiGroup'] = false;         // Require group membership to login
 
-### phpBB-to-MediaWiki username translation
+### Custom phpBB-to-MediaWiki username translation
 
-phpBB usernames can be translated to more restrictive wiki usernames.
-Use phpBB ACP, Users and Groups, Custom profile fields.
-Create a "Single text field" custom profile field.
+Auth_phpBB will use the phpBB username to create the MediaWiki username.
+If `UseCanonicalCase` is `true`, the MediaWiki username will match the
+case of the phpBB username with the first letter capitalized.
+```
+someUserName => SomeUserName
+```
 
-**Suggested settings:**
-* Name it "wikiusername"
-* Set "Publicly display profile field" = no
-* Uncheck all visibility options, except check "Hide profile field"
-* Set "Field name/title presented to the user" = "Wiki Username"
-* Set "Field description" = "Forum username translated for wiki username restrictions"
-* Set "Length of input box" = 20
-* Set "Maximum number of characters" = 255
-* Set "Field validation" to "Any character"
-* Set Language definitions fields to same as field name/title/description above.
+If `UseCanonicalCase` is `false`, the MediaWiki username will be set to
+the lowercased phpBB username with the first letter capitalized.
+```
+someUserName => Someusername
+```
 
-The custom profile field must be hidden to all but the admins
-because users could otherwise hijack wiki accounts by entering any
-username they wish.
+This is unlikely to work for all phpBB users as MediaWiki is more
+restrictive on the characters within a username, such as underscores and other
+special characters.
 
-Enter a valid MediaWiki username into this field in the user's
-profile only when the phpBB username conflicts with MediaWiki username restrictions.
-For example, enter "Under Score" for a user with the name "Under_Score" because
-underscores are not allowed in MediaWiki usernames.  All users with phpBB usernames
-which are also valid MediaWiki usernames do not need this field set.
+To address this, Auth_phpBB can use the value of a custom profile field in
+phpBB for the MediaWiki username. Forum administrators can set the value of
+the custom profile field to a form that is valid in MediaWiki. Users can use
+either their phpBB or the custom profile field value to log in to the wiki.
 
+If this feature is enabled with `UseWikiProfile`, Auth_phpBB will use the
+custom profile field for the MediaWiki username if it is set, otherwise it will
+fall back to using the phpBB username as described above.
+
+To create this field, use phpBB ACP to create a custom profile field:
+
+1. Log into the ACP
+2. Select `Users and Groups`
+3. Select `Custom profile fields`
+4. Create a `Single text field` custom profile field
+   1. Name it "wikiusername"
+   2. Set "Publicly display profile field" = no
+   3. Uncheck all visibility options, except check "Hide profile field"
+   4. Set "Field name/title presented to the user" = "Wiki Username"
+   5. Set "Field description" = "Forum username translated for wiki username restrictions"
+   6. Set "Length of input box" = 20
+   7. Set "Maximum number of characters" = 255
+   8. Set "Field validation" to "Any character"
+   9. Set Language definitions fields to same as field name/title/description above.
+
+_Warning: The custom profile field **must be hidden** to all but the admins because users
+could otherwise hijack wiki accounts by entering any username they wish._
+
+Update `LocalSettings.php` and set the following values:
+```php
+$wgAuth_Config['UseWikiProfile'] = true;
+// Name of your phpBB profile data table.
+$wgAuth_Config['ProfileDataTB'] = 'phpbb_profile_fields_data';
+// Name of your phpBB custom profile field.
+// phpBB prefixes 'pf_' to the custom field name you choose in the UI.
+// e.g., "wikiusername" becomes "pf_wikiusername"
+$wgAuth_Config['ProfileFieldName'] = 'pf_wikiusername';
+```
+
+Forum admins can now populate the custom profile field for a user to set their
+wikiusername. For example, enter "Under Score" for a user with the name
+"Under_Score" because underscores are not allowed in MediaWiki usernames.
+Users with phpBB usernames which are also valid MediaWiki usernames do not
+need this field set.
