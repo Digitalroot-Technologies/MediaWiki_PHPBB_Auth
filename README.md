@@ -168,3 +168,29 @@ wikiusername. For example, enter "Under Score" for a user with the name
 "Under_Score" because underscores are not allowed in MediaWiki usernames.
 Users with phpBB usernames which are also valid MediaWiki usernames do not
 need this field set.
+
+## Troubleshooting
+
+To debug authentication issues, enable the debug log group for the `Auth_phpBB`
+component by adding this to your `LocalSettings.php`:
+
+```php
+$wgDebugLogGroups = [
+    "Auth_phpBB" => "/some/path/mw-debug-Auth_phpBB.log",
+];
+```
+
+Now when users login the log will contain the progress of the authentication.
+Here's an example of a successful login using `UseWikiProfile` and `UseWikiGroup`:
+
+```
+2022-01-27 17:09:04: authenticate: looking up phpBB account & WikiProfile for 'TestUser'
+2022-01-27 17:09:04: lookupPhpBBUser: no phpBB username matched 'TestUser'
+2022-01-27 17:09:04: lookupWikiProfile: found WikiProfile 'TestUser' with user_id 862
+2022-01-27 17:09:04: getWikiProfileName: user_id 862 has a WikiProfile of 'TestUser'
+2022-01-27 17:09:04: authenticate: attempting login for 'TestUser' as wiki user 'TestUser'
+2022-01-27 17:09:05: isMemberOfWikiGroup: user_id 862 is a member of 'Wiki'
+2022-01-27 17:09:05: authenticate: user 'TestUser' logged in as wiki user 'TestUser'
+```
+
+Be sure to disable `$wgDebugLogGroups` after you are done debugging!
