@@ -356,7 +356,8 @@ class Auth_phpBB extends PluggableAuth {
                 LIMIT 1", $this->_UserTB);
 
         // Query Database.
-        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
+        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery) or
+            $this->debug_and_throw("DB error querying against table ({$this->_UserTB}). Check the UserTB setting.");
         $fresStatement->bind_param('i', $phpBBUserID);
         $fresStatement->execute();
 
@@ -438,21 +439,15 @@ class Auth_phpBB extends PluggableAuth {
             $fresMySQLConnection = new mysqli($dbHostAddr, $this->_MySQL_Username,
                 $this->_MySQL_Password, $this->_MySQL_Database);
 
-            // Check if we are connected to the database.
-            if ($fresMySQLConnection->connect_errno > 0) {
-                $this->mySQLError('There was a problem when connecting to the phpBB database.<br />' .
-                    'Check your Host, Username, and Password settings.<br />');
-            }
         } else {
             // Connect to database.
             $fresMySQLConnection = new mysqli($GLOBALS['wgDBserver'], $GLOBALS['wgDBuser'],
                 $GLOBALS['wgDBpassword'], $GLOBALS['wgDBname']);
+        }
 
-            // Check if we are connected to the database.
-            if ($fresMySQLConnection->connect_errno > 0) {
-                $this->mySQLError('There was a problem when connecting to the phpBB database.<br />' .
-                    'Check your Host, Username, and Password settings.<br />');
-            }
+        // Check if we are connected to the database.
+        if ($fresMySQLConnection->connect_errno > 0) {
+            $this->debug_and_throw("There was a problem when connecting to the phpBB database. Check your connection settings.");
         }
 
         $this->_MySQL_Version = substr($fresMySQLConnection->server_info, 0, 3); // Get the mysql version.
@@ -487,7 +482,8 @@ class Auth_phpBB extends PluggableAuth {
                 LIMIT 1", ($this->_UseCanonicalCase ? "username" : "username_clean"), $this->_UserTB);
 
         // Query Database.
-        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
+        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery) or
+            $this->debug_and_throw("DB error querying against table ($this->_UserTB). Check the UserTB setting.");
         $fresStatement->bind_param('s', $phpBBUserName); // bind_param escapes the string
         $fresStatement->execute();
 
@@ -528,7 +524,8 @@ class Auth_phpBB extends PluggableAuth {
             $this->_ProfileFieldName);
 
         // Query Database.
-        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
+        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery) or
+            $this->debug_and_throw("DB error querying against table ({$this->_ProfileDataTB}). Check the ProfileDataTB & ProfileFieldName settings.");
         $fresStatement->bind_param('s', $username);
         $fresStatement->execute();
 
@@ -581,7 +578,8 @@ class Auth_phpBB extends PluggableAuth {
             $this->_ProfileFieldName);
 
         // Query Database.
-        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
+        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery) or
+            $this->debug_and_throw("DB error querying against table ({$this->_ProfileDataTB}). Check the ProfileDataTB & ProfileFieldName settings.");
         $fresStatement->bind_param('i', $user_id);
         $fresStatement->execute();
 
@@ -642,7 +640,8 @@ class Auth_phpBB extends PluggableAuth {
             $fstrMySQLQuery = sprintf('SELECT `group_id` FROM `%s`
                     WHERE `group_name` = ?',
                 $this->_GroupsTB);
-            $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
+            $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery) or
+                $this->debug_and_throw("DB error querying against table ({$this->_GroupsTB}). Check the GroupsTB setting.");
             $fresStatement->bind_param('s', $WikiGrpName); // bind_param escapes the string
             $fresStatement->execute();
             $fresStatement->bind_result($resultGroupID);
@@ -657,7 +656,8 @@ class Auth_phpBB extends PluggableAuth {
                     WHERE `user_id` = ? AND `group_id` = ? and `user_pending` = 0",
                 $this->_User_GroupTB);
 
-            $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
+            $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery) or
+                $this->debug_and_throw("DB error querying against table ({$this->_User_GroupTB}). Check the User_GroupTB setting.");
             $fresStatement->bind_param('ii', $user_id, $group_id);
             $fresStatement->execute();
 
@@ -692,7 +692,7 @@ class Auth_phpBB extends PluggableAuth {
 
         // Check that path is valid.
         if (!is_dir($this->_PathToPHPBB)) {
-            throw new Exception('Unable to find phpBB installed at (' . $this->_PathToPHPBB . ').');
+            $this->debug_and_throw("Unable to find phpBB installed at ({$this->_PathToPHPBB}).");
         }
 
         switch ($FileSet) {
@@ -702,12 +702,12 @@ class Auth_phpBB extends PluggableAuth {
                 $autoloadPath = rtrim($this->_PathToPHPBB, '/') . '/vendor/autoload.php';
 
                 if (!is_file($utfToolsPath)) {
-                    throw new Exception('Unable to find phpbb\'s utf_tools.php file at (' . $utfToolsPath . '). Please check that phpBB is installed.');
+                    $this->debug_and_throw("Unable to find phpbb's utf_tools.php file at ($utfToolsPath). Please check that phpBB is installed.");
                 }
 
                 // We need the composer autoloader because phpBB 3.2+ uses patchwork/utf.
                 if (!is_file($autoloadPath)) {
-                    throw new Exception('Unable to find phpbb\'s autoload.php file at (' . $autoloadPath . '). Please check that phpBB is installed.');
+                    $this->debug_and_throw("Unable to find phpbb's autoload.php file at ($autoloadPath). Please check that phpBB is installed.");
                 }
 
                 // Load the phpBB file.
@@ -762,14 +762,15 @@ class Auth_phpBB extends PluggableAuth {
 
 
     /**
-     * This prints an error when a MySQL error is found.
+     * Log debug message and throw an exception.
      *
      * @param string $message
-     * @access public
+     * @access private
      */
-    private function mySQLError($message)
+    private function debug_and_throw($message)
     {
-        throw new Exception('MySQL error: ' . $message . '<br /><br />');
+        $this->debug("ERROR: $message");
+        throw Exception($message);
     }
 
 
