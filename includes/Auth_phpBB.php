@@ -356,7 +356,8 @@ class Auth_phpBB extends PluggableAuth {
                 LIMIT 1", $this->_UserTB);
 
         // Query Database.
-        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
+        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery) or
+            $this->debug_and_throw("DB error querying against table ({$this->_UserTB}). Check the UserTB setting.");
         $fresStatement->bind_param('i', $phpBBUserID);
         $fresStatement->execute();
 
@@ -481,7 +482,8 @@ class Auth_phpBB extends PluggableAuth {
                 LIMIT 1", ($this->_UseCanonicalCase ? "username" : "username_clean"), $this->_UserTB);
 
         // Query Database.
-        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
+        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery) or
+            $this->debug_and_throw("DB error querying against table ($this->_UserTB). Check the UserTB setting.");
         $fresStatement->bind_param('s', $phpBBUserName); // bind_param escapes the string
         $fresStatement->execute();
 
@@ -522,7 +524,8 @@ class Auth_phpBB extends PluggableAuth {
             $this->_ProfileFieldName);
 
         // Query Database.
-        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
+        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery) or
+            $this->debug_and_throw("DB error querying against table ({$this->_ProfileDataTB}). Check the ProfileDataTB & ProfileFieldName settings.");
         $fresStatement->bind_param('s', $username);
         $fresStatement->execute();
 
@@ -575,7 +578,8 @@ class Auth_phpBB extends PluggableAuth {
             $this->_ProfileFieldName);
 
         // Query Database.
-        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
+        $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery) or
+            $this->debug_and_throw("DB error querying against table ({$this->_ProfileDataTB}). Check the ProfileDataTB & ProfileFieldName settings.");
         $fresStatement->bind_param('i', $user_id);
         $fresStatement->execute();
 
@@ -636,7 +640,8 @@ class Auth_phpBB extends PluggableAuth {
             $fstrMySQLQuery = sprintf('SELECT `group_id` FROM `%s`
                     WHERE `group_name` = ?',
                 $this->_GroupsTB);
-            $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
+            $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery) or
+                $this->debug_and_throw("DB error querying against table ({$this->_GroupsTB}). Check the GroupsTB setting.");
             $fresStatement->bind_param('s', $WikiGrpName); // bind_param escapes the string
             $fresStatement->execute();
             $fresStatement->bind_result($resultGroupID);
@@ -651,7 +656,8 @@ class Auth_phpBB extends PluggableAuth {
                     WHERE `user_id` = ? AND `group_id` = ? and `user_pending` = 0",
                 $this->_User_GroupTB);
 
-            $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery);
+            $fresStatement = $fresMySQLConnection->prepare($fstrMySQLQuery) or
+                $this->debug_and_throw("DB error querying against table ({$this->_User_GroupTB}). Check the User_GroupTB setting.");
             $fresStatement->bind_param('ii', $user_id, $group_id);
             $fresStatement->execute();
 
