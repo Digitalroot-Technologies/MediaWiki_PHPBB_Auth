@@ -171,8 +171,8 @@ need this field set.
 
 ## Troubleshooting
 
-To debug authentication issues, enable the debug log group for the `Auth_phpBB`
-component by adding this to your `LocalSettings.php`:
+To debug configuration and authentication issues, enable the debug log group
+for the `Auth_phpBB` component by adding this to your `LocalSettings.php`:
 
 ```php
 $wgDebugLogGroups = [
@@ -180,7 +180,10 @@ $wgDebugLogGroups = [
 ];
 ```
 
-Now when users login the log will contain the progress of the authentication.
+Any plugin configuration issues that result in an Exception should output an
+error message to the file.
+
+When users login the log will contain the progress of the authentication.
 Here's an example of a successful login using `UseWikiProfile` and `UseWikiGroup`:
 
 ```
