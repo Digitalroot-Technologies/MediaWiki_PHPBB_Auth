@@ -3,7 +3,7 @@ MediaWiki_PHPBB_Auth
 
 This extension links MediaWiki to phpBB's user table for authentication, and disallows the creation of new accounts in MediaWiki. Users must then log in to the wiki with their phpBB account.
 
-MediaWiki Page: http://www.mediawiki.org/wiki/Extension:PHPBB/Users_Integration
+MediaWiki Page: https://www.mediawiki.org/wiki/Extension:PHPBB_Auth
 
 REQUIREMENTS
 =================
@@ -11,7 +11,7 @@ REQUIREMENTS
 * PHP 7.3 or later
 * MySQL 5 or later
 * MediaWiki 1.31 LTS or later (tested on 1.31 and 1.35)
-* phpBB 3.3
+* phpBB 3.3 (tested on 3.3.3)
 * [PluggableAuth](https://www.mediawiki.org/wiki/Extension:PluggableAuth) MediaWiki extension
 
 INSTALL
@@ -21,89 +21,114 @@ Install the PluggableAuth MediaWiki extension.
 
 Extract the package contents into an `/extensions/Auth_phpBB` directory.
 
-Open `LocalSettings.php`. Put this at the bottom of the file. Edit as needed.
+Open `LocalSettings.php`. Put this at the bottom of the file and edit as needed.
+The values in the `$wgAuth_Config` array below represent the defaults, except
+for `UseCanonicalCase` which was `false` prior to June 2016, so you only need to
+use and set values that differ for your system.
 
-    /*-----------------[ Everything below this line. ]-----------------*/
-    
-    // phpBB User Database Plugin. (Requires MySQL Database)
-    
-    $wgAuth_Config = array(); // Clean.
-    
-    $wgAuth_Config['UseCanonicalCase'] = true;      // Setting this to true causes the MediaWiki usernames
-                                                    // to match the casing of the phpBB ones (except with
-                                                    // the first letter set uppercase.)
-                                                    // Setting this to false causes usernames to be all
-                                                    // lowercase except for the first character.
-                                                    // Before June 2016 this setting was always false,
-                                                    // changing it to true on an install where it previously
-                                                    // was false will cause users with uppercase characters
-                                                    // to appear as separate users from their previous
-                                                    // all-lowercase account.
-     
-    $wgAuth_Config['WikiGroupName'] = 'Wiki';       // Name of your phpBB group
-                                                    // users need to be a member
-                                                    // of to use the wiki. (i.e. wiki)
-                                                    // This can also be set to an array 
-                                                    // of group names to use more then 
-                                                    // one. (ie. 
-                                                    // $wgAuth_Config['WikiGroupName'][] = 'Wiki';
-                                                    // $wgAuth_Config['WikiGroupName'][] = 'Wiki2';
-                                                    // or
-                                                    // $wgAuth_Config['WikiGroupName'] = array('Wiki', 'Wiki2');
-                                                    // )
-    
-    
-    $wgAuth_Config['UseWikiGroup'] = false;         // This tells the Plugin to require
-                                                    // a user to be a member of the above
-                                                    // phpBB group. (ie. wiki) Setting
-                                                    // this to false will let any phpBB
-                                                    // user edit the wiki.
-    
-    $wgAuth_Config['UseExtDatabase'] = false;       // This tells the plugin that the phpBB tables
-                                                    // are in a different database then the wiki.
-                                                    // The default settings is false.
-    
-    $wgAuth_Config['MySQL_Host']        = 'localhost';      // phpBB MySQL Host Name.
-    $wgAuth_Config['MySQL_Port']        = '';               // phpBB MySQL Port number.
-    $wgAuth_Config['MySQL_Username']    = 'username';       // phpBB MySQL Username.
-    $wgAuth_Config['MySQL_Password']    = 'password';       // phpBB MySQL Password.
-    $wgAuth_Config['MySQL_Database']    = 'database';       // phpBB MySQL Database Name.
-    
-    $wgAuth_Config['UserTB']         = 'phpbb3_users';       // Name of your phpBB user table. (i.e. phpbb_users)
-    $wgAuth_Config['GroupsTB']       = 'phpbb3_groups';      // Name of your phpBB groups table. (i.e. phpbb_groups)
-    $wgAuth_Config['User_GroupTB']   = 'phpbb3_user_group';  // Name of your phpBB user_group table. (i.e. phpbb_user_group)
-    $wgAuth_Config['PathToPHPBB']    = '../phpbb3/';         // Path from this file to your phpBB install.
-    $wgAuth_Config['URLToPHPBB']     = 'http://www.domain.com/phpbb3/'; // URL of your phpBB install.
-    
-    $wgAuth_Config['UseWikiProfile']   = false;   // Whether the extension checks for a custom username profile
-                                                  // field in phpBB when the phpBB username is incompatible with
-                                                  // MediaWiki username restrictions.
-    
-    $wgAuth_Config['ProfileDataTB']    = 'phpbb3_profile_fields_data';  // Name of your phpBB profile data table. (e.g. phpbb_profile_fields_data)
-    
-    $wgAuth_Config['ProfileFieldName'] = 'pf_wikiusername';             // Name of your phpBB custom profile field
-                                                                        // The 'pf_' is always prefixed to the custom field name you choose.
-                                                                        // e.g., "wikiusername" becomes "pf_wikiusername"
-    
-    // Local
-    $wgAuth_Config['LoginMessage']   = '<b>Please register on the forums to login.</b><br /><a href="' . $wgAuth_Config['URLToPHPBB'] .
-                                       'ucp.php?mode=register">Click here to create an account.</a>'; // Localize this message.
-    $wgAuth_Config['NoWikiError']    = 'You must be a member of the required forum group.'; // Localize this message.
-    
-    wfLoadExtension( 'PluggableAuth' );
-    wfLoadExtension( 'Auth_phpBB' );
+```php
+// phpBB User Database Plugin. (Requires MySQL Database)
 
+$wgAuth_Config = [
+    //=======================================================================
+    // Required settings
+
+    'PathToPHPBB'  => '../phpbb3/',        // Path from this file to your phpBB install
+    'UserTB'       => 'phpbb3_users',      // Name of your phpBB user table
+    'GroupsTB'     => 'phpbb3_groups',     // Name of your phpBB groups table
+    'User_GroupTB' => 'phpbb3_user_group', // Name of your phpBB user_group table
+
+    // Make MediaWiki usernames match the case of the phpBB usernames (except
+    // with the first letter set to uppercase). Setting this to false causes
+    // usernames to be all lowercase except for the first character.
+    // NOTE: Before June 2016 this setting was always false, changing it to
+    // true on an install where it previously was false will cause users with
+    // uppercase characters to appear as separate users from their previous
+    // all-lowercase account!
+    'UseCanonicalCase' => true,
+
+
+    //=======================================================================
+    // Optional settings
+
+    // --------------------------------------
+    // Wiki Group settings
+
+    // By default, any valid phpBB user can log in. To require the user to be
+    // a member of one or more phpBB groups, set this to true.
+    'UseWikiGroup'  => false,
+
+    // phpBB group(s) the plugin checks for membership in when using
+    // UseWikiGroup = true. Additional groups can be specified by adding
+    // to the array: ['Wiki', 'SecondGroup']. To log in, the user must be
+    // a member of at least one of them.
+    'WikiGroupName' => ['Wiki'],
+
+
+    // --------------------------------------
+    // External database settings
+
+    // Auth_phpBB assumes the phpBB tables are in the same database as the
+    // MediaWiki tables. If phpBB is installed in a different MySQL database,
+    // whether on the same or different host, set these parameters to have
+    // the plugin connect to that database instead. See the config.php file
+    // in your phpBB installation for the values.
+    'UseExtDatabase' => false,
+    'MySQL_Host'     => 'localhost',
+    'MySQL_Port'     => '',
+    'MySQL_Database' => '',
+    'MySQL_Username' => '',
+    'MySQL_Password' => '',
+
+
+    // --------------------------------------
+    // Alternative username mappings
+
+    // Use a custom username profile field in phpBB to create the username for
+    // the wiki. This is most helpful for phpBB users whose usernames are
+    // incompatible with MediaWiki username restrictions.
+    // See the Auth_phpBB README.md for more information on configuring this.
+    'UseWikiProfile'   => false,
+
+    // Name of your phpBB profile data table.
+    'ProfileDataTB'    => 'phpbb3_profile_fields_data',
+
+    // Name of your phpBB custom profile field.
+    // phpBB prefixes 'pf_' to the custom field name you choose in the UI.
+    // e.g., "wikiusername" becomes "pf_wikiusername"
+    'ProfileFieldName' => 'pf_wikiusername',
+
+
+    // --------------------------------------
+    // Error messages
+
+    // Error message to display to users on a failed login attempt.
+    // Message text is formatted using wiki markup. An example with a link:
+    // 'Please register on the [https://some.domain.com/phpbb forums] to login.'
+    'LoginMessage' => 'Please register on the forums to login.',
+
+    // Error message when a user is not a member of the required phpBB group
+    'NoWikiError'  => 'You must be a member of the required forum group.',
+];
+
+// load the authentication extensions
+wfLoadExtension( 'PluggableAuth' );
+wfLoadExtension( 'Auth_phpBB' );
+```
 
 Optional Features
 -----------------
 
 ### Require phpBB group membership
 
-To restrict wiki login to certain phpBB users, create a group in phpBB --
-I named mine "Wiki". Then update the following two configuration settings:
+To restrict wiki login to certain phpBB users, create a group in phpBB, for
+instance "Wiki", and assign users to it. Then update the following two
+configuration settings:
 
-    $wgAuth_Config['WikiGroupName'] = 'Wiki';       // Name of your phpBB group
-    $wgAuth_Config['UseWikiGroup'] = false;         // Require group membership to login
+```php
+$wgAuth_Config['UseWikiGroup'] = true;      // Require group membership to login
+$wgAuth_Config['WikiGroupName'] = ['Wiki']; // Name of your phpBB group
+```
 
 ### Custom phpBB-to-MediaWiki username translation
 
@@ -156,7 +181,7 @@ Update `LocalSettings.php` and set the following values:
 ```php
 $wgAuth_Config['UseWikiProfile'] = true;
 // Name of your phpBB profile data table.
-$wgAuth_Config['ProfileDataTB'] = 'phpbb_profile_fields_data';
+$wgAuth_Config['ProfileDataTB'] = 'phpbb3_profile_fields_data';
 // Name of your phpBB custom profile field.
 // phpBB prefixes 'pf_' to the custom field name you choose in the UI.
 // e.g., "wikiusername" becomes "pf_wikiusername"
