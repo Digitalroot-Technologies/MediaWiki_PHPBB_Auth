@@ -41,6 +41,7 @@
 
 use MediaWiki\Auth\AuthManager;
 use MediaWiki\MediaWikiServices;
+use User;
 
 /**
  * Class Auth_phpBB
@@ -357,9 +358,12 @@ class Auth_phpBB extends PluggableAuth {
                 if ($this->isMemberOfWikiGroup($phpBBUserID)) {
                     $this->debug("authenticate: user '$username' logged in as wiki user '$wikiUsername'");
                     $username = $wikiUsername;
+                    $user = User::newFromName($username);
+                    if ($user !== false && $user->getId() !== 0) {
+                        $id = $user->getId();
+                    }
                     $realname = 'I need to Update My Profile';
                     $email = $resultUserEmail;
-                    $id = $phpBBUserID;
                     return true;
                 } else {
                     $this->debug("authenticate: '$username' not a member of required group(s)");
