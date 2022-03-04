@@ -351,8 +351,13 @@ class Auth_phpBB extends PluggableAuth {
 
             /**
              * Check if password submitted matches the PHPBB password.
+             * phpBB always encodes user input using set_var() before storing
+             * it, including passwords. We must likewise process the password
+             * before we compare against it.
              * Also check if user is a member of the phpbb group 'wiki'.
              */
+            $type_cast_helper = $this->buildPhpBBTypeCastHelper();
+            $type_cast_helper->set_var($password, $password, 'string');
             if ($passwords_manager->check($password, $resultUserPassword)) {
                 if ($this->isMemberOfWikiGroup($phpBBUserID)) {
                     $this->debug("authenticate: user '$username' logged in as wiki user '$wikiUsername'");
@@ -722,6 +727,9 @@ class Auth_phpBB extends PluggableAuth {
                 require_once $phpbb . 'passwords/driver/sha_xf1.php';
                 require_once $phpbb . 'passwords/manager.php';
 
+                require_once $phpbb . 'request/type_cast_helper_interface.php';
+                require_once $phpbb . 'request/type_cast_helper.php';
+
                 break;
             case 'phpBBLogout':
             case 'phpBBLogin':
@@ -794,6 +802,14 @@ class Auth_phpBB extends PluggableAuth {
 
         $passwords_manager = new \phpbb\passwords\manager($config, $passwords_drivers, $passwords_helper, array_keys($passwords_drivers));
         return $passwords_manager;
+    }
+
+    /**
+     * @return \phpbb\request\type_cast_helper
+     */
+    public function buildPhpBBTypeCastHelper()
+    {
+        return new \phpbb\request\type_cast_helper();
     }
 
     /**
