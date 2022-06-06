@@ -10,9 +10,9 @@ REQUIREMENTS
 
 * PHP 7.3 or later
 * MySQL 5 or later
-* MediaWiki 1.31 LTS or later (tested on 1.31 and 1.35)
-* phpBB 3.3 (tested on 3.3.3)
-* [PluggableAuth](https://www.mediawiki.org/wiki/Extension:PluggableAuth) MediaWiki extension
+* MediaWiki 1.31 LTS or later up to 1.37 (tested on 1.31, 1.35 and 1.37) not compatible with 1.38
+* phpBB 3.3 (tested on 3.3.3 and 3.3.7)
+* [PluggableAuth](https://www.mediawiki.org/wiki/Extension:PluggableAuth) 5.7 MediaWiki extension
 
 INSTALL
 =================
