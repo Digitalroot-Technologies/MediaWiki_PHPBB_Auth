@@ -6,9 +6,6 @@
  * in order to log into the wiki. This can also force the user to
  * be in a group called Wiki.
  *
- * With 4.0.x release this code was rewritten to make better use of
- * objects and php7. Works with MediaWiki 1.31.x (LTS), PHPBB3.3.x and PHP7.4.
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -39,8 +36,13 @@
  *
  */
 
+namespace MediaWiki\Extension\Auth_phpBB;
+
 use MediaWiki\Auth\AuthManager;
+use MediaWiki\User\UserIdentity;
 use MediaWiki\MediaWikiServices;
+use MediaWiki\Extension\PluggableAuth\PluggableAuth;
+use MediaWiki\Extension\PluggableAuth\PluggableAuthLogin;
 use User;
 
 /**
@@ -284,7 +286,7 @@ class Auth_phpBB extends PluggableAuth {
      * @param string &$errorMessage
      * @return bool true if user is authenticated, false otherwise
      */
-    public function authenticate( &$id, &$username, &$realname, &$email, &$errorMessage )
+    public function authenticate( &$id, &$username, &$realname, &$email, &$errorMessage ): bool
     {
         $this->initialize_config();
 
@@ -391,7 +393,7 @@ class Auth_phpBB extends PluggableAuth {
      *
      * @param int $id user id
      */
-    public function saveExtraAttributes( $id )
+    public function saveExtraAttributes( $id ): void
     {
         // nothing to do
     }
@@ -403,11 +405,19 @@ class Auth_phpBB extends PluggableAuth {
      *
      * @param User &$user
      */
-    public function deauthenticate( User &$user )
+    public function deauthenticate( UserIdentity &$user ): void
     {
         // nothing to do
     }
 
+    /**
+     * Populates the login page for this plugin.
+     * [used by PluggableAuth]
+     */
+    public static function getExtraLoginFields(): array
+    {
+        return (array)( new ExtraLoginFields() );
+    }
 
     /**
      * Connect to the database. All of these settings are from the
@@ -425,12 +435,12 @@ class Auth_phpBB extends PluggableAuth {
             $dbHostAddr = ($this->_MySQL_Port == '' ? $this->_MySQL_Host : $this->_MySQL_Host . ':' . $this->_MySQL_Port);
 
             // Connect to database. I supress the error here.
-            $fresMySQLConnection = new mysqli($dbHostAddr, $this->_MySQL_Username,
+            $fresMySQLConnection = new \mysqli($dbHostAddr, $this->_MySQL_Username,
                 $this->_MySQL_Password, $this->_MySQL_Database);
 
         } else {
             // Connect to database.
-            $fresMySQLConnection = new mysqli($GLOBALS['wgDBserver'], $GLOBALS['wgDBuser'],
+            $fresMySQLConnection = new \mysqli($GLOBALS['wgDBserver'], $GLOBALS['wgDBuser'],
                 $GLOBALS['wgDBpassword'], $GLOBALS['wgDBname']);
         }
 

@@ -30,6 +30,8 @@
      * @link http://digitalroot.net/
      */
 
+namespace MediaWiki\Extension\Auth_phpBB;
+
 /**
  * Class Auth_phpBBHooks
  * @author  Casey Peel
@@ -43,7 +45,12 @@ class Auth_phpBBHooks {
      */
     public static function onRegistration()
     {
-        $GLOBALS['wgPluggableAuth_ExtraLoginFields'] = (array)( new ExtraLoginFields() );
+        $GLOBALS['wgPluggableAuth_Config'] = [
+            "login" => [
+                'plugin' => 'Auth_phpBB',
+                'buttonLabelMessage' => 'Log in',
+            ]
+        ];
 
         // This requires a user be logged into the wiki to make changes.
         $GLOBALS['wgGroupPermissions']['*']['edit'] = false;
