@@ -30,6 +30,8 @@
  * @link http://digitalroot.net/
  */
 
+namespace MediaWiki\Extension\Auth_phpBB;
+
 /**
  * Class ExtraLoginFields
  * Inspired by LDAPAuthentication2 extension

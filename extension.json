@@ -1,26 +1,34 @@
 {
-	"name": "Auth_phpBB",
-	"author": [
-            "Nicholas Dunnaway",
-            "Steve Gilvarry",
-            "Jonathan W. Platt",
-            "C4K3",
-            "Joel Haasnoot",
-            "[https://kence.org Casey Peel]"
-        ],
-	"url": "https://github.com/Digitalroot/MediaWiki_PHPBB_Auth",
-	"description": "Authenticate against a phpBB user database.",
-	"version": "4.0.0",
-	"license-name": "GPL-2.0-or-later",
-	"type": "validextensionclass",
-	"manifest_version": 1,
-	"callback": "Auth_phpBBHooks::onRegistration",
-	"config": {
-		"PluggableAuth_Class": "Auth_phpBB"
-	},
-	"AutoloadClasses": {
-		"Auth_phpBB": "includes/Auth_phpBB.php",
-		"Auth_phpBBHooks": "includes/Auth_phpBBHooks.php",
-		"ExtraLoginFields": "includes/ExtraLoginFields.php"
-	}
+    "name": "Auth_phpBB",
+    "version": "4.1.0",
+    "author": [
+        "Nicholas Dunnaway",
+        "Steve Gilvarry",
+        "Jonathan W. Platt",
+        "C4K3",
+        "Joel Haasnoot",
+        "[https://kence.org Casey Peel]"
+    ],
+    "url": "https://github.com/Digitalroot/MediaWiki_PHPBB_Auth",
+    "description": "Authenticate against a phpBB user database.",
+    "type": "validextensionclass",
+    "license-name": "GPL-2.0-or-later",
+    "requires": {
+        "MediaWiki": ">= 1.35.0",
+        "extensions": {
+            "PluggableAuth": ">= 6.1"
+        }
+    },
+    "AutoloadNamespaces": {
+        "MediaWiki\\Extension\\Auth_phpBB\\": "includes/"
+    },
+    "callback": "MediaWiki\\Extension\\Auth_phpBB\\Auth_phpBBHooks::onRegistration",
+    "attributes": {
+        "PluggableAuth": {
+            "Auth_phpBB": {
+                "class": "MediaWiki\\Extension\\Auth_phpBB\\Auth_phpBB"
+            }
+        }
+    },
+    "manifest_version": 2
 }
