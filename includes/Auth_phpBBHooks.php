@@ -48,7 +48,7 @@ class Auth_phpBBHooks {
         $GLOBALS['wgPluggableAuth_Config'] = [
             "login" => [
                 'plugin' => 'Auth_phpBB',
-                'buttonLabelMessage' => 'Log in',
+                'buttonLabelMessage' => 'login',
             ]
         ];
 
