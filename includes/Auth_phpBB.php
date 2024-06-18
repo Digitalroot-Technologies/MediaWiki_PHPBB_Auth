@@ -772,7 +772,7 @@ class Auth_phpBB extends PluggableAuth {
     private function debug_and_throw($message)
     {
         $this->debug("ERROR: $message");
-        throw Exception($message);
+        throw new \Exception($message);
     }
 
 

@@ -230,4 +230,15 @@ Here's an example of a successful login using `UseWikiProfile` and `UseWikiGroup
 2022-01-27 17:09:05: authenticate: user 'TestUser' logged in as wiki user 'TestUser'
 ```
 
-Be sure to disable `$wgDebugLogGroups` after you are done debugging!
+If that fails to write out to an error log due to some permission settings
+(seen in some hosted configurations) you can enable full MediaWiki debug
+messages and disable caching with:
+
+```php
+$wgShowExceptionDetails = true;
+$wgShowDBErrorBacktrace = true;
+$wgEnableParserCache = false;
+$wgCachePages = false;
+```
+
+Be sure to disable all debugging options after you are done!
