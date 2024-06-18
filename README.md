@@ -19,7 +19,7 @@ Version Compatibility Matrix
 
 | MediaWiki | PluggableAuth | MediaWiki_PHPBB_Auth |
 | --------- | ------------- | -------------------- |
-| > 1.35    | 6.x or 7.x    | 4.1.0                |
+| > 1.35    | 6.x or 7.x    | 4.2.0                |
 | 1.35      | 5.7           | 4.0.0                |
 | < 1.35    | n/a           | 3.x                  |
 
