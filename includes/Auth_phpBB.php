@@ -803,6 +803,7 @@ class Auth_phpBB extends PluggableAuth {
             'passwords.driver.argon2i' => new \phpbb\passwords\driver\argon2i($config, $passwords_driver_helper),
             'passwords.driver.argon2id' => new \phpbb\passwords\driver\argon2id($config, $passwords_driver_helper),
             'passwords.driver.bcrypt' => new \phpbb\passwords\driver\bcrypt($config, $passwords_driver_helper, 10),
+            'passwords.driver.bcrypt_2y' => new \phpbb\passwords\driver\bcrypt_2y($config, $passwords_driver_helper, 10),
             'passwords.driver.salted_md5' => new \phpbb\passwords\driver\salted_md5($config, $passwords_driver_helper),
             'passwords.driver.phpass' => new \phpbb\passwords\driver\phpass($config, $passwords_driver_helper),
             'passwords.driver.convert_password' => new \phpbb\passwords\driver\convert_password($config, $passwords_driver_helper),
