@@ -241,4 +241,4 @@ $wgEnableParserCache = false;
 $wgCachePages = false;
 ```
 
-Be sure to disable all debugging options after you are done!
+:warning: Remember to disable all debugging options after you are done! :warning:
