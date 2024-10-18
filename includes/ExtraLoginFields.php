@@ -24,7 +24,7 @@
  * @author C4K3
  * @author Joel Haasnoot
  * @author Casey Peel
- * @copyright 2007-2021 Digitalroot Technologies
+ * @copyright 2007-2025 Digitalroot Technologies
  * @license http://www.gnu.org/copyleft/gpl.html
  * @link https://github.com/Digitalroot/MediaWiki_PHPBB_Auth
  * @link http://digitalroot.net/
