@@ -10,7 +10,7 @@ REQUIREMENTS
 
 * PHP 7.3 or later
 * MySQL 5 or later
-* MediaWiki 1.35 LTS or later (tested on 1.35 and 1.39)
+* MediaWiki 1.35 LTS or later (tested on 1.35, 1.39, and 1.43)
 * phpBB 3.3 (tested on 3.3.3 and 3.3.7)
 * [PluggableAuth extension](https://www.mediawiki.org/wiki/Extension:PluggableAuth)
 
@@ -19,7 +19,7 @@ Version Compatibility Matrix
 
 | MediaWiki | PluggableAuth | MediaWiki_PHPBB_Auth |
 | --------- | ------------- | -------------------- |
-| > 1.35    | 6.x or 7.x    | 4.2.0                |
+| > 1.35    | 6.x or 7.x    | >= 4.2.0             |
 | 1.35      | 5.7           | 4.0.0                |
 | < 1.35    | n/a           | 3.x                  |
 
